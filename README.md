@@ -67,8 +67,11 @@ Deployed via the Vercel CLI; standard `vercel deploy` also works.
   call returning real repo data, and GitHub's own Installed Apps page
   confirming the authorization. See `docs/learnings.md`.
 
-Full debugging history — every real bug found by testing generated
-guides, root cause, fix, and what's still not fully solved — is in
+Full pipeline walkthrough (what each stage does, file by file, the exact
+search/extract budget, how the verifier pass works) is in
+[`docs/how-it-works.md`](docs/how-it-works.md). Full debugging history —
+every real bug found by testing generated guides, root cause, fix, and
+what's still not fully solved — is in
 [`docs/learnings.md`](docs/learnings.md).
 
 ## Limitations
