@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BrowseGuidesLink from "@/components/BrowseGuidesLink";
 
 export default function SiteHeader() {
   return (
@@ -24,7 +25,8 @@ export default function SiteHeader() {
             <path d="M9 21v-6h6v6" />
           </svg>
         </Link>
-        <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+        <BrowseGuidesLink />
+        <span className="hidden text-sm font-medium text-zinc-600 sm:inline dark:text-zinc-400">
           OAuth Setup Guides
         </span>
         <Link
