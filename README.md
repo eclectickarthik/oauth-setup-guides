@@ -23,6 +23,26 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Deploy
+
+Standard Vercel deploy (`vercel deploy` or connect the repo in the
+dashboard) — no special build config needed. One thing to set up first:
+
+**Production needs `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.**
+Without them, `getGuideStore()` falls back to writing JSON files under
+`/data/generated` (`lib/store.ts`) — fine for local dev, but Vercel's
+serverless functions don't share or persist a filesystem across
+invocations, so every generated guide would vanish the moment the
+function instance that created it is recycled. A free Upstash Redis
+database (a few minutes to set up at
+[upstash.com](https://upstash.com)) makes generated guides actually
+persist and be shareable in production; the `UpstashGuideStore`
+implementation is already written and picked automatically once those two
+env vars are set, no code change needed.
+
+Set all four env vars from `.env.example` (`GEMINI_API_KEY`,
+`TAVILY_API_KEY`, the two Upstash ones) in the Vercel project settings
+before the first deploy.
 ### Environment variables
 
 | Variable | Required | Notes |
