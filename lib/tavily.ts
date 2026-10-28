@@ -38,12 +38,14 @@ async function tavilyPost<T>(path: string, body: Record<string, unknown>): Promi
 
 export async function tavilySearch(
   query: string,
-  maxResults = 4
+  maxResults = 4,
+  includeDomains?: string[]
 ): Promise<TavilySearchResult[]> {
   const data = await tavilyPost<{ results: TavilySearchResult[] }>("/search", {
     query,
     search_depth: "basic",
     max_results: maxResults,
+    ...(includeDomains && includeDomains.length > 0 ? { include_domains: includeDomains } : {}),
   });
   return data.results ?? [];
 }

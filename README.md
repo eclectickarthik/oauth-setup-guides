@@ -248,6 +248,39 @@ Verified with unit tests (`lib/domain.test.ts`, `lib/resolve.test.ts`,
 for a resolved Reddit identity, while an already-correct URL on the real
 domain (or the developer portal's domain) is left untouched.
 
+**The link-level fix above still left the research step reading
+third-party blogs for Reddit's own guide.** Live-testing right after the
+fix above still showed `accessCost`/`requirements`/`steps` all sourced
+from `redditcommentscraper.com`, `octolens.com`, `painonsocial.com`, and
+similar pricing-aggregator blogs — the "Website" link was correct now, but
+the guide's actual content wasn't. The cause: `lib/agent.ts`'s
+domain-ranking heuristic (`JUNK_DOMAINS`) treats `reddit.com`, `x.com`,
+`linkedin.com`, and `facebook.com` as junk by design, since a Reddit
+discussion thread about some *other* app is noise — but that penalizes a
+provider's own pages whenever the provider being researched *is* one of
+those four companies, while giving unrelated blogs no penalty at all.
+
+Fixed by giving the resolved official domain (from the same `resolveApp()`
+step as the link fix) priority in search, not just in scoring:
+`scoreResult()` now checks the official/developer-portal domain first via
+the same registrable-domain comparison as `enforceOfficialLinks`, and
+`research()` runs one additional Tavily search restricted to that domain
+(`include_domains`) so the provider's real docs get found directly instead
+of hoping a generic web search surfaces them. A first version of this
+domain-restricted search used a generic "OAuth API documentation" query,
+which pulled in Reddit's **Ads API** docs over its regular Data API — the
+same right-domain-wrong-product failure mode as the Apple Ads case above
+— fixed by reusing the same end-user-facing query bias as the primary
+search instead of a bare generic one.
+
+Verified live via `npm run generate -- Reddit`: sources for pricing,
+requirements, and steps now come from `developers.reddit.com` and
+`ads-api.reddit.com`, not from any scraper/blog domain. Covered by a new
+`scoreResult` unit test in `lib/agent.test.ts` asserting the official
+domain outranks an unrelated blog for its own guide, while still being
+deprioritized when it's irrelevant to a *different* app's guide (e.g. a
+Reddit thread when researching Notion).
+
 ## Limitations
 
 - **The agent pipeline is noticeably weaker than hand-tested guides**,

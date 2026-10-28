@@ -25,6 +25,23 @@ function ServiceBadge({ service }: { service?: "tavily" | "gemini" }) {
   );
 }
 
+function Spinner() {
+  return (
+    <svg
+      className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-400 dark:text-zinc-500"
+      viewBox="0 0 24 24"
+      fill="none"
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-80"
+        fill="currentColor"
+        d="M12 2a10 10 0 0 1 10 10h-4a6 6 0 0 0-6-6V2z"
+      />
+    </svg>
+  );
+}
+
 export default function GenerateForm({ initialInput = "" }: { initialInput?: string }) {
   const router = useRouter();
   const [input, setInput] = useState(initialInput);
@@ -174,6 +191,7 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
             onClick={() => setExpanded((v) => !v)}
             className="flex w-full items-center gap-2 text-left text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
           >
+            {status === "running" && <Spinner />}
             <ServiceBadge service={current.service} />
             <span className="flex-1 truncate">{current.message}</span>
             <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-600">

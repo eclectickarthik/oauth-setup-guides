@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enforceOfficialLinks } from "./agent";
+import { enforceOfficialLinks, scoreResult } from "./agent";
 import type { Guide } from "./schema";
 import type { ResolvedApp } from "./resolve";
 
@@ -102,5 +102,47 @@ describe("enforceOfficialLinks", () => {
     const result = enforceOfficialLinks(drafted, resolved);
 
     expect(result.websiteVerified).toBe(false);
+  });
+});
+
+describe("scoreResult", () => {
+  // JUNK_DOMAINS exists to deprioritize discussion/review sites for most
+  // apps (a reddit.com thread about some other app's API is noise), but
+  // reddit.com, x.com, linkedin.com and facebook.com are themselves real
+  // companies — the exact bug: researching Reddit itself penalized
+  // Reddit's own pages while giving an unrelated blog no penalty at all,
+  // so the blog outranked Reddit's own docs.
+  it("ranks the official domain above an unrelated blog, even when the official domain is also in JUNK_DOMAINS", () => {
+    const officialDomains = ["reddit.com"];
+
+    const officialScore = scoreResult(
+      { url: "https://www.reddit.com/prefs/apps" },
+      "reddit",
+      officialDomains
+    );
+    const blogScore = scoreResult(
+      { url: "https://octolens.com/blog/reddit-api-pricing" },
+      "reddit",
+      officialDomains
+    );
+
+    expect(officialScore).toBeGreaterThan(blogScore);
+  });
+
+  it("still deprioritizes a third-party domain when researching an unrelated app", () => {
+    const officialDomains = ["notion.so"];
+
+    const redditDiscussion = scoreResult(
+      { url: "https://www.reddit.com/r/notion/comments/xyz" },
+      "notion",
+      officialDomains
+    );
+    const docsPage = scoreResult(
+      { url: "https://developers.notion.com/docs/authorization" },
+      "notion",
+      officialDomains
+    );
+
+    expect(docsPage).toBeGreaterThan(redditDiscussion);
   });
 });

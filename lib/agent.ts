@@ -80,7 +80,13 @@ const USER_DELEGATED_KEYWORDS =
 const CLIENT_CREDENTIALS_KEYWORDS =
   /\bclient[_ ]credentials\b|\bserver[- ]to[- ]server\b|\byour own (ad )?account\b|\bapp-level token\b|\bapp-only\b/i;
 
-function scoreResult(result: { url: string; score?: number }, appSlug: string): number {
+// Exported for testing — see the "reddit.com itself outranked by blogs"
+// regression test in lib/agent.test.ts.
+export function scoreResult(
+  result: { url: string; score?: number },
+  appSlug: string,
+  officialDomains: string[]
+): number {
   let score = result.score ?? 0;
   let host: string;
   try {
@@ -88,6 +94,20 @@ function scoreResult(result: { url: string; score?: number }, appSlug: string): 
   } catch {
     return -100;
   }
+
+  // A page actually on the resolved official/developer-portal domain is
+  // the best possible source, full stop — check this before anything
+  // else. This matters because JUNK_DOMAINS below is itself a list of
+  // real companies' domains (reddit.com, x.com, linkedin.com,
+  // facebook.com): generically correct, since e.g. a Reddit discussion
+  // thread about some OTHER app is junk, but wrong when the app BEING
+  // researched is Reddit itself — it penalized Reddit's own docs pages
+  // while giving unrelated blogs (octolens.com, painonsocial.com) no
+  // penalty at all, so blogs about Reddit's API outranked Reddit's own
+  // pages. isOfficialUrl is the same registrable-domain check used to
+  // validate the final website/developerPortalUrl links.
+  if (officialDomains.some((d) => isOfficialUrl(result.url, d))) return score + 20;
+
   if (JUNK_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) score -= 10;
   if (DOC_HINTS.some((h) => host.includes(h))) score += 3;
   if (appSlug && host.includes(appSlug)) score += 2;
@@ -337,7 +357,8 @@ type ResearchResult = { notes: string; sourceUrls: string[] };
 async function research(
   appInput: string,
   onProgress: ProgressFn,
-  tavilyCounter: { count: number }
+  tavilyCounter: { count: number },
+  officialDomains: string[] = []
 ): Promise<ResearchResult> {
   // "sign in" + "user login" + "authorization code" bias the search toward
   // the end-user-facing product rather than whichever API page happens to
@@ -359,7 +380,37 @@ async function research(
   onProgress(`Searching for "${appInput}" API pricing and recent changes…`, "tavily");
 
   tavilyCounter.count += queries.length;
-  const searchResults = await Promise.all(queries.map((q) => tavilySearch(q, 5)));
+  const searchPromises = queries.map((q) => tavilySearch(q, 5));
+
+  // The generic queries above search the whole web, so for a provider whose
+  // own domain is full of non-docs content (Reddit, X, LinkedIn, Facebook —
+  // the same companies that are in JUNK_DOMAINS for everyone else's guide)
+  // they can surface unrelated pages on that domain (a random subreddit
+  // thread) instead of the provider's real docs, just because something on
+  // reddit.com ranked for an unrelated keyword match. A search restricted to
+  // the resolved official domain(s) via Tavily's include_domains goes
+  // straight to the real docs instead of hoping a generic search finds them.
+  const bareOfficialDomains = officialDomains
+    .map((d) => registrableDomain(d))
+    .filter((d): d is string => Boolean(d));
+  if (bareOfficialDomains.length > 0) {
+    onProgress(`Searching ${bareOfficialDomains.join(", ")} directly for OAuth docs…`, "tavily");
+    tavilyCounter.count += 1;
+    searchPromises.push(
+      // Same end-user-facing bias as the primary query above — a bare
+      // "OAuth API documentation" search on the official domain tended to
+      // surface a provider's ads/server-to-server API docs (ads-api.*
+      // subdomains optimize hard for "OAuth"/"authorization" keywords)
+      // over the actual consumer-facing API most agent builders want.
+      tavilySearch(
+        `${appInput} sign in OAuth user login authorization code developer documentation`,
+        5,
+        bareOfficialDomains
+      )
+    );
+  }
+
+  const searchResults = await Promise.all(searchPromises);
 
   const appSlug = slugify(appInput);
   const seen = new Set<string>();
@@ -370,7 +421,7 @@ async function research(
       seen.add(r.url);
       return true;
     })
-    .sort((a, b) => scoreResult(b, appSlug) - scoreResult(a, appSlug));
+    .sort((a, b) => scoreResult(b, appSlug, officialDomains) - scoreResult(a, appSlug, officialDomains));
 
   const selected = candidates.slice(0, INITIAL_EXTRACT_CAP);
   if (selected.length === 0) {
@@ -406,7 +457,7 @@ async function research(
     const fallbackResults = await tavilySearch(`${appInput} ${check.query}`, 5);
     const fallbackCandidates = fallbackResults
       .filter((r) => !seen.has(r.url))
-      .sort((a, b) => scoreResult(b, appSlug) - scoreResult(a, appSlug))
+      .sort((a, b) => scoreResult(b, appSlug, officialDomains) - scoreResult(a, appSlug, officialDomains))
       .slice(0, FALLBACK_EXTRACT_CAP);
 
     if (fallbackCandidates.length > 0) {
@@ -442,7 +493,7 @@ async function research(
     );
     const signInCandidates = signInResults
       .filter((r) => !seen.has(r.url))
-      .sort((a, b) => scoreResult(b, appSlug) - scoreResult(a, appSlug))
+      .sort((a, b) => scoreResult(b, appSlug, officialDomains) - scoreResult(a, appSlug, officialDomains))
       .slice(0, FALLBACK_EXTRACT_CAP);
 
     if (signInCandidates.length > 0) {
@@ -518,7 +569,15 @@ export async function generateGuide(
   const tavilyCounter = { count: 0 };
 
   try {
-    const { notes, sourceUrls } = await research(appInput, onProgress, tavilyCounter);
+    const officialDomains = [resolved.official_domain, resolved.developer_portal_url].filter(
+      (d): d is string => Boolean(d)
+    );
+    const { notes, sourceUrls } = await research(
+      appInput,
+      onProgress,
+      tavilyCounter,
+      officialDomains
+    );
 
     let lastError = "";
     const tryParse = (raw: string): Guide | null => {
