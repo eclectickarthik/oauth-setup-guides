@@ -163,6 +163,10 @@
   ],
   "sources": [
     {
+      "title": "Authorizing OAuth apps",
+      "url": "https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps"
+    },
+    {
       "title": "Rate limits for the REST API",
       "url": "https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api"
     }
