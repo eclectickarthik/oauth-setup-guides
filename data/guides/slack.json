@@ -1,0 +1,131 @@
+{
+  "slug": "slack",
+  "appName": "Slack",
+  "website": "https://slack.com",
+  "developerPortalUrl": "https://api.slack.com/apps",
+  "summary": "Creating a Slack app and installing it to your own workspace is instant with no review. Listing it in the Slack Marketplace for anyone to install is a different story — it requires 10+ active installs before you can even submit, then a two-phase review.",
+  "decision": {
+    "question": "Will this run in your own workspace only, or get listed for any workspace to install?",
+    "options": [
+      {
+        "name": "Single workspace",
+        "pickWhen": [
+          "Building for your own team or workspace",
+          "You want to start testing immediately"
+        ],
+        "tradeoff": "Instant, no review — but the app can't be installed by other workspaces."
+      },
+      {
+        "name": "Slack Marketplace (public distribution)",
+        "pickWhen": ["Any Slack workspace should be able to install your app"],
+        "tradeoff": "Requires 10+ active installs before you can even submit, a two-phase review that can take up to ~12 weeks total, and restricts which scopes you can request."
+      }
+    ],
+    "recommendation": "Start with a single-workspace install to build and test. Pursue Marketplace listing only once you have real usage — the install threshold and review timeline make it a late-stage step, not a launch blocker."
+  },
+  "difficulty": "medium",
+  "difficultyReason": "Installing a Slack app to the workspace you created it in requires no review and works immediately. But distributing it publicly via the Slack Marketplace requires 10+ active installs sustained through the whole review, plus a two-phase review process that can take up to roughly 12 weeks.",
+  "time": {
+    "setup": "15-30 min",
+    "approvalWait": "None to install to your own workspace. For Slack Marketplace listing: up to 10 business days for a preliminary review, then up to 10 weeks for the functional review on new submissions (6 weeks for resubmissions) — this cannot be expedited.",
+    "notes": "Official docs don't state a hands-on setup time; the estimate above is based on the number of required steps (create app, configure scopes, set redirect URI, install), not a documented figure."
+  },
+  "whenReviewIsNeeded": [
+    {
+      "text": "Listing an app in the Slack Marketplace for public distribution requires passing a two-phase review (preliminary, then functional).",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/"]
+    }
+  ],
+  "requirements": [
+    {
+      "text": "A Slack workspace to develop in — your own, or a development sandbox.",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/quickstart"]
+    },
+    {
+      "text": "A publicly reachable HTTPS redirect URI. Slack rejects plain http:// and any URL containing an anchor (#).",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+    },
+    {
+      "text": "If targeting Marketplace listing: the app must already be installed on 10 or more active workspaces (used within the last 28 days) before submission, sustained throughout the review, and fully tested end-to-end including uninstall on a non-development workspace.",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/"]
+    }
+  ],
+  "steps": [
+    {
+      "title": "Create the app",
+      "detail": "Go to api.slack.com/apps, click 'Create New App', choose 'From scratch' or 'From an app manifest', and select the workspace to develop in.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://api.slack.com/apps"]
+    },
+    {
+      "title": "Configure OAuth scopes",
+      "detail": "Under OAuth & Permissions, add bot scopes (the app's own identity and permissions, via the scope parameter) and/or user scopes (acting on behalf of a user, via user_scope) depending on what the integration needs.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+    },
+    {
+      "title": "Set the redirect URI",
+      "detail": "Add the HTTPS redirect URI under OAuth & Permissions. It must exactly match — or be a subdirectory of — the URL sent in the authorization request.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+    },
+    {
+      "title": "Install to your workspace",
+      "detail": "Click 'Install to Workspace' to generate a token and start testing immediately — no review needed for this step.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://api.slack.com/apps"]
+    },
+    {
+      "title": "Implement the OAuth redirect and token exchange",
+      "detail": "Redirect users to Slack's authorize endpoint with the client ID and scopes, then exchange the returned code (valid for 10 minutes) for an access token via oauth.v2.access.",
+      "actor": "agent",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+    }
+  ],
+  "blockers": [
+    {
+      "problem": "Redirect URI rejected by Slack.",
+      "fix": "It must be HTTPS, contain no anchor (#), and exactly match or be a subdirectory of a URL configured under OAuth & Permissions.",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+    },
+    {
+      "problem": "App can't be installed by other workspaces.",
+      "fix": "Expected before the app is approved for public distribution — until then it's restricted to the workspace it was created in. The team parameter only becomes a hint (not a restriction) once the app is distributed.",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+    },
+    {
+      "problem": "Marketplace submission rejected before review even starts.",
+      "fix": "Reach 10+ active installs (used within the last 28 days) and keep that threshold through the whole review. Fully test the install, setup, and uninstall flow on a non-development workspace first.",
+      "evidence": "docs",
+      "sources": ["https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/"]
+    }
+  ],
+  "agentCanDo": [
+    "Build the authorization URL with the right scopes",
+    "Implement the callback handler and code-for-token exchange",
+    "Call Slack Web API methods using the returned token"
+  ],
+  "humanMustDo": [
+    "Create the app and configure OAuth scopes and redirect URI in the Slack dashboard",
+    "Click Install to Workspace",
+    "If pursuing Marketplace listing: reach the 10-install threshold and handle the review submission"
+  ],
+  "openQuestions": [
+    "Exact hands-on setup time isn't stated in official docs — the estimate given is based on the number of required steps, not a documented figure.",
+    "Whether rate limits or a paid-tier requirement gate any part of OAuth app creation or Marketplace listing isn't addressed in the docs reviewed.",
+    "The exact scope list considered 'extensive access' or 'restricted' for Marketplace eligibility, beyond the named examples (admin.*, search:read, triggers:*)."
+  ],
+  "generatedBy": "manual",
+  "lastVerified": "2026-10-28"
+}

@@ -126,3 +126,127 @@ publishing/verification were new in this test.
   duration, refresh token lifetime in Testing mode, and the requirement to
   enable the Gmail API before calling it — not tested directly, taken
   from official Google documentation (cited in `data/guides/google.json`).
+
+## Slack
+
+Researched 2026-10-28 from official docs only (docs.slack.dev, api.slack.com)
+— not hands-on tested, unlike the GitHub and Google guides above. Every claim
+in `data/guides/slack.json` is marked `evidence: "docs"`, never `"tested"`.
+
+**Confirmed from docs**
+
+- Installing an app to its own workspace requires no review and works
+  immediately — matches the "medium" hypothesis's easy half.
+- Listing in the Slack Marketplace is a two-phase review: up to 10 business
+  days for a preliminary review, then up to 10 weeks for new submissions (6
+  weeks for resubmissions) — cannot be expedited.
+- Marketplace submission requires 10+ active installs (used in the last 28
+  days), sustained through the entire review, *before* you can submit.
+- Redirect URIs must be HTTPS with no anchor (#), and must match or be a
+  subdirectory of a URL configured in OAuth & Permissions.
+
+**Corrected**
+
+- Nothing to correct against — this is a new guide, not a revision of an
+  existing hypothesis.
+
+**Couldn't verify**
+
+- Exact hands-on setup time (not stated in official docs; the guide's
+  estimate is based on step count, not a documented figure).
+- Whether rate limits or a paid tier gate any part of app creation or
+  Marketplace listing.
+- The full scope list considered "extensive access" or "restricted" for
+  Marketplace eligibility, beyond the three named examples in the docs.
+
+This guide is weaker than GitHub's and Google's precisely because it's
+docs-only: no firsthand account of what the actual OAuth app creation form
+looks like, what errors a developer hits, or whether the documented steps
+match the current UI. It's included to complete the four-guide difficulty
+spread (easy/medium/hard/gated) from `CLAUDE.md`, not as a claim that
+docs-research alone is equivalent to testing.
+
+## Agent-Generated vs. Manual
+
+Milestone 6: ran the live-generation agent (Tavily search + extract, then
+Gemini drafting — see `CLAUDE.md`) on "GitHub" and "Google" and compared the
+output against the hand-tested guides above. Both agent runs are saved
+under `data/generated/` (gitignored) as `github-generated.json` and
+`google-generated.json`.
+
+### GitHub (agent) vs. GitHub (manual)
+
+**Matched well**
+
+- Difficulty: agent said "easy", matches the tested guide.
+- Setup time: agent said "5 minutes"; tested guide says "5-10 min" — close.
+- Core steps (Developer settings → New OAuth App → fill fields → register)
+  match what was actually tested.
+- The agent surfaced one new, correctly-sourced detail the manual guide
+  didn't have: a verified-email requirement before authorizing OAuth apps.
+
+**Diverged**
+
+- The agent's guide has **no OAuth App vs. GitHub App decision at all** —
+  it only describes the classic OAuth App flow. The manual guide's single
+  most useful addition (the decision point, since the two paths have very
+  different access models and setup times) is entirely missing from the
+  agent version. The two Tavily searches ("GitHub OAuth app setup developer
+  docs" / "GitHub app review verification") didn't surface a GitHub Apps
+  page in the top 4 extracted results.
+- `agentCanDo` and `blockers` are both empty in the agent's guide. The
+  extracted pages covered app *registration* but not the authorization-flow
+  implementation page, so the model had nothing to draw an "agent can
+  implement the token exchange" step from, and no firsthand friction to
+  report as blockers (homepage-vs-redirect-URI confusion, the
+  can't-delete-your-only-secret rule, etc. — all things the manual test
+  caught that no doc page states outright).
+- The agent flagged a specific rate limit ("10 tokens per user/application/
+  scope combination per hour") that the manual test never checked — a
+  plausible lead worth verifying, not a contradiction.
+
+**Takeaway:** for a provider with two distinct app types, generic search
+queries that don't name both types by name will likely miss the
+less-obvious one. The decision field is the single highest-value piece of
+a guide and is exactly the part a docs-only agent run is least likely to
+get right without query tuning.
+
+### Google (agent) vs. Google (manual)
+
+**Matched well**
+
+- Both identify OAuth consent screen configuration, domain verification,
+  and a review path as the core complexity.
+- Both correctly separate "no review needed" from "review needed for
+  external/published apps."
+
+**Diverged — this is the more serious gap**
+
+- Agent said difficulty **"medium"**; the manually tested guide says
+  **"hard"**. The agent's guide never mentions restricted scopes, Gmail, or
+  the CASA security assessment at all — the single most expensive and
+  time-consuming part of the real process (a paid third-party security
+  audit, $500-$4,500, 2-6+ weeks, redone annually) is completely absent.
+- Agent said approval wait is "2-3 business days"; the manual guide found
+  sensitive-scope verification alone takes ~10 business days, before
+  restricted-scope CASA is even factored in — the agent's number is a
+  significant underestimate.
+- No Internal/Testing/Production decision field was generated, even though
+  Google clearly has that structure — the extracted pages (brand
+  verification, Workspace Marketplace review, and a Google Home/Android
+  OAuth page) didn't describe the three-way split clearly enough for the
+  model to surface it.
+- Sources skew toward **Google Home / Android** OAuth docs
+  (`developers.home.google.com`) rather than the general Google Identity
+  Platform docs a web/API integration actually needs — the query
+  "Google OAuth app setup developer docs" is ambiguous for a company as
+  broad as Google, and the domain-ranking heuristic (favoring any
+  `developers.*` host) couldn't tell "the right Google docs" from
+  "a Google docs page."
+
+**Takeaway:** the agent pipeline degrades badly on broad, multi-product
+providers unless the query names the specific product/API (e.g. "Gmail
+API" rather than "Google"). This is a real, known limitation of the
+current two-fixed-query search strategy — it works well for single-product
+providers (GitHub, Linear, Figma) and is unreliable for umbrella brands
+without a more specific input than just the company name.
