@@ -17,6 +17,7 @@ type Tab = "browse" | "generate";
 export default function GuidesBrowser({ guides }: { guides: Guide[] }) {
   const [tab, setTab] = useState<Tab>("browse");
   const [query, setQuery] = useState("");
+  const [generateSeed, setGenerateSeed] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -26,6 +27,11 @@ export default function GuidesBrowser({ guides }: { guides: Guide[] }) {
         g.appName.toLowerCase().includes(q) || g.summary.toLowerCase().includes(q)
     );
   }, [guides, query]);
+
+  function goGenerate(seed: string) {
+    setGenerateSeed(seed);
+    setTab("generate");
+  }
 
   return (
     <div className="mt-4">
@@ -64,38 +70,50 @@ export default function GuidesBrowser({ guides }: { guides: Guide[] }) {
             className="w-full rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
           />
 
-          <ul className="mt-4 divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
-            {filtered.length === 0 && (
-              <li className="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-500">
-                No guides match &quot;{query}&quot;.
-              </li>
-            )}
-            {filtered.map((guide) => (
-              <li key={guide.slug}>
-                <Link
-                  href={`/guides/${guide.slug}`}
-                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
+          {/* Visibly contained scroll area — only this list scrolls; the
+              tabs and search bar above stay put regardless of list length. */}
+          <div className="mt-4 max-h-[60vh] overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-inner dark:border-zinc-800 dark:bg-zinc-950">
+            {filtered.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-500">
+                <p>No guides match &quot;{query}&quot;.</p>
+                <button
+                  type="button"
+                  onClick={() => goGenerate(query)}
+                  className="mt-2 font-medium text-black underline hover:no-underline dark:text-zinc-50"
                 >
-                  <div>
-                    <span className="font-medium text-black dark:text-zinc-50">
-                      {guide.appName}
-                    </span>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-500">
-                      {guide.summary}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${DIFFICULTY_STYLES[guide.difficulty]}`}
-                  >
-                    {guide.difficulty}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                  Generate a guide for &quot;{query}&quot; instead
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {filtered.map((guide) => (
+                  <li key={guide.slug}>
+                    <Link
+                      href={`/guides/${guide.slug}`}
+                      className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                    >
+                      <div>
+                        <span className="font-medium text-black dark:text-zinc-50">
+                          {guide.appName}
+                        </span>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-500">
+                          {guide.summary}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${DIFFICULTY_STYLES[guide.difficulty]}`}
+                      >
+                        {guide.difficulty}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       ) : (
-        <GenerateForm />
+        <GenerateForm initialInput={generateSeed} />
       )}
     </div>
   );

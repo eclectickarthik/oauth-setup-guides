@@ -24,9 +24,9 @@ function ServiceBadge({ service }: { service?: "tavily" | "gemini" }) {
   );
 }
 
-export default function GenerateForm() {
+export default function GenerateForm({ initialInput = "" }: { initialInput?: string }) {
   const router = useRouter();
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialInput);
   const [status, setStatus] = useState<"idle" | "running" | "error">("idle");
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [expanded, setExpanded] = useState(false);
