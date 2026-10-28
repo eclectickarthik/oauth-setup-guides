@@ -4,6 +4,7 @@ import { getGuideStore } from "@/lib/store";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import EvidenceBadge from "@/components/EvidenceBadge";
 import type { Evidence } from "@/lib/schema";
+import { pickOfficialDocsUrl } from "@/lib/domain";
 
 const DIFFICULTY_STYLES: Record<string, string> = {
   easy: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
@@ -74,6 +75,7 @@ export default async function GuidePage({
 
   if (!guide) notFound();
 
+  const docsUrl = pickOfficialDocsUrl(guide);
   const wasCorrected = from && from.trim().toLowerCase() !== guide.appName.toLowerCase();
 
   // "manual" means a human wrote the file, not that every claim was
@@ -169,6 +171,23 @@ export default async function GuidePage({
           </a>
           {guide.websiteVerified === false && (
             <span className="text-zinc-400 dark:text-zinc-600">(unverified)</span>
+          )}
+          {docsUrl ? (
+            <a
+              href={docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-black dark:hover:text-zinc-50"
+            >
+              Docs
+            </a>
+          ) : (
+            <span
+              title="No official OAuth docs page among this guide's sources"
+              className="cursor-not-allowed text-zinc-400 dark:text-zinc-600"
+            >
+              Docs unavailable
+            </span>
           )}
           <a
             href={guide.developerPortalUrl}

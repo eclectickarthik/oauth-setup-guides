@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOfficialUrl, registrableDomain } from "./domain";
+import { isOfficialUrl, pickOfficialDocsUrl, registrableDomain } from "./domain";
 
 describe("registrableDomain", () => {
   it("extracts the eTLD+1 from a URL", () => {
@@ -35,5 +35,54 @@ describe("isOfficialUrl", () => {
   it("returns false for an unparseable URL or domain", () => {
     expect(isOfficialUrl("not a url", "reddit.com")).toBe(false);
     expect(isOfficialUrl("https://reddit.com", "")).toBe(false);
+  });
+});
+
+describe("pickOfficialDocsUrl", () => {
+  const base = {
+    website: "https://github.com",
+    developerPortalUrl: "https://github.com/settings/developers",
+  };
+
+  it("picks an auth-related source on the official domain", () => {
+    expect(
+      pickOfficialDocsUrl({
+        ...base,
+        sources: [
+          { title: "Rate limits", url: "https://docs.github.com/en/rest/rate-limits" },
+          {
+            title: "Authorizing OAuth apps",
+            url: "https://docs.github.com/en/apps/oauth-apps/authorizing-oauth-apps",
+          },
+        ],
+      })
+    ).toBe("https://docs.github.com/en/apps/oauth-apps/authorizing-oauth-apps");
+  });
+
+  it("returns null when no official source is about auth", () => {
+    expect(
+      pickOfficialDocsUrl({
+        ...base,
+        sources: [{ title: "Rate limits", url: "https://docs.github.com/en/rest/rate-limits" }],
+      })
+    ).toBeNull();
+  });
+
+  it("ignores third-party sources and unverified domains", () => {
+    expect(
+      pickOfficialDocsUrl({
+        ...base,
+        sources: [{ title: "OAuth tutorial", url: "https://some-blog.dev/github-oauth" }],
+      })
+    ).toBeNull();
+    expect(
+      pickOfficialDocsUrl({
+        website: "https://github-scraper.io",
+        websiteVerified: false,
+        developerPortalUrl: "https://github-scraper.io/dev",
+        developerPortalVerified: false,
+        sources: [{ title: "OAuth", url: "https://github-scraper.io/oauth" }],
+      })
+    ).toBeNull();
   });
 });
