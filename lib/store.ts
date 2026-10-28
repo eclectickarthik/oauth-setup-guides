@@ -3,6 +3,8 @@ import path from "path";
 import type { Redis } from "@upstash/redis";
 import { Guide } from "./schema";
 
+const BLOB_PREFIX = "guides/";
+
 // GuideStore holds *generated* guides (agent output), keyed by slug.
 // Hand-checked library guides live separately in /data/guides/*.json and are
 // read directly by the library page — they never go through this interface.
@@ -92,19 +94,79 @@ export class UpstashGuideStore implements GuideStore {
   }
 }
 
+// --- Vercel Blob implementation (production) --------------------------------
+// Lazily imports @vercel/blob so the local dev path never needs it installed.
+// Each guide is one JSON blob at guides/<slug>.json. The store itself is
+// private-access (not publicly browsable by URL guessing); reads go through
+// the SDK with the same read-write token used for writes, same as get()
+// below does explicitly rather than relying on a bare fetch(blob.url).
+
+export class BlobGuideStore implements GuideStore {
+  constructor(private token: string) {}
+
+  private pathname(slug: string) {
+    return `${BLOB_PREFIX}${slug}.json`;
+  }
+
+  private async readStream(stream: ReadableStream<Uint8Array>): Promise<Guide> {
+    const chunks: Uint8Array[] = [];
+    const reader = stream.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as Guide;
+  }
+
+  async get(slug: string): Promise<Guide | null> {
+    const { get } = await import("@vercel/blob");
+    const result = await get(this.pathname(slug), {
+      access: "private",
+      token: this.token,
+    });
+    if (!result || !result.stream) return null;
+    return this.readStream(result.stream);
+  }
+
+  async set(slug: string, guide: Guide): Promise<void> {
+    const { put } = await import("@vercel/blob");
+    await put(this.pathname(slug), JSON.stringify(guide, null, 2), {
+      access: "private",
+      contentType: "application/json",
+      token: this.token,
+      allowOverwrite: true,
+    });
+  }
+
+  async list(): Promise<Guide[]> {
+    const { list } = await import("@vercel/blob");
+    const { blobs } = await list({ prefix: BLOB_PREFIX, token: this.token });
+    const guides = await Promise.all(
+      blobs.map((b) => this.get(b.pathname.slice(BLOB_PREFIX.length, -".json".length)))
+    );
+    return guides.filter((g): g is Guide => g !== null);
+  }
+}
+
 // --- Factory -----------------------------------------------------------------
-// Picks Redis when UPSTASH_REDIS_REST_URL/TOKEN are set, otherwise local JSON files.
+// Prefers Vercel Blob (BLOB_READ_WRITE_TOKEN), then Upstash Redis
+// (UPSTASH_REDIS_REST_URL/TOKEN), otherwise local JSON files for dev.
 
 let storeSingleton: GuideStore | null = null;
 
 export function getGuideStore(): GuideStore {
   if (storeSingleton) return storeSingleton;
 
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-  storeSingleton =
-    url && token ? new UpstashGuideStore(url, token) : new LocalFileGuideStore();
+  storeSingleton = blobToken
+    ? new BlobGuideStore(blobToken)
+    : url && token
+      ? new UpstashGuideStore(url, token)
+      : new LocalFileGuideStore();
 
   return storeSingleton;
 }

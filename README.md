@@ -42,19 +42,21 @@ production env vars; Vercel's own deployment-protection SSO wall is
 turned off so the link above is reachable without a Vercel login (the
 app's own password gate is the only thing in front of it).
 
-**One known gap in the current deploy: no Upstash Redis.** Without
-`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, `getGuideStore()`
-falls back to writing JSON files under `/data/generated` (`lib/store.ts`)
-— fine for local dev, but Vercel's serverless functions don't share or
-persist a filesystem across invocations, so a guide generated live on
-the deployed link will work and render immediately, but isn't guaranteed
-to still be there if the serverless instance that created it gets
-recycled before someone reopens the share link. A free Upstash Redis
-database (a few minutes to set up at
-[upstash.com](https://upstash.com)) would make generated guides actually
-persist — the `UpstashGuideStore` implementation is already written and
-picked automatically once those two env vars are set, no code change
-needed; just not set up for this submission.
+**Generated-guide persistence:** Vercel's serverless functions don't
+share or persist a filesystem across invocations, so the local-JSON-file
+store (`lib/store.ts`'s `LocalFileGuideStore`, the default with nothing
+else configured) silently loses every generated guide — the first live
+test of this deploy actually hit exactly that
+(`ENOENT: no such file or directory, mkdir '/var/task/data/generated'`,
+caught after a full research+draft run had already spent the API calls).
+Fixed by adding a private Vercel Blob store (`vercel storage create
+<name> --type blob --access private`, connected to the project, which
+sets `BLOB_READ_WRITE_TOKEN` automatically) and a `BlobGuideStore`
+implementation — one JSON blob per guide at `guides/<slug>.json`, read
+back through `@vercel/blob`'s `get()` with the same token rather than a
+bare `fetch(url)`, since the store is private. `getGuideStore()` now
+prefers Blob, then Upstash Redis, then the local-file fallback for dev.
+
 ### Environment variables
 
 | Variable | Required | Notes |
@@ -62,7 +64,13 @@ needed; just not set up for this submission.
 | `GEMINI_API_KEY` | Yes | Drafts the guide JSON. Get one free at [aistudio.google.com](https://aistudio.google.com). |
 | `TAVILY_API_KEY` | Yes | Searches and extracts provider developer docs. Free tier (1,000 credits/mo, no card) at [tavily.com](https://tavily.com). |
 | `LLM_MODEL` | No | Defaults to `gemini-3.5-flash-lite`. Swappable without a code change. |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | No | If unset, generated guides are stored as local JSON files under `/data/generated` (gitignored). |
+| `BLOB_READ_WRITE_TOKEN` | No | Persists generated guides via Vercel Blob. Set automatically by `vercel storage connect`. Checked before Upstash. |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | No | Alternative persistence if Blob isn't set up. |
+| `SITE_PASSWORD` | No | Access-gate password (`proxy.ts`). Defaults to `composio` in code if unset. |
+
+If none of `BLOB_READ_WRITE_TOKEN` / `UPSTASH_REDIS_REST_URL` are set,
+generated guides fall back to local JSON files under `/data/generated`
+(gitignored) — fine for local dev, broken on Vercel (see above).
 
 ## Key decisions
 
