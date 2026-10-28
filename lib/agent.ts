@@ -547,7 +547,10 @@ async function research(
   appInput: string,
   onProgress: ProgressFn,
   tavilyCounter: { count: number },
-  officialDomains: string[] = []
+  officialDomains: string[] = [],
+  // Host-matching key for result scoring — the company ("google"), even
+  // when appInput is a company + product search subject ("Google Gmail").
+  appSlug: string = slugify(appInput)
 ): Promise<ResearchResult> {
   // "sign in" + "user login" + "authorization code" bias the search toward
   // the end-user-facing product rather than whichever API page happens to
@@ -612,7 +615,6 @@ async function research(
     hasDomainSearch ? searchResults[searchResults.length - 1].map((r) => r.url) : []
   );
 
-  const appSlug = slugify(appInput);
   const seen = new Set<string>();
   const candidates = searchResults
     .flat()
@@ -768,6 +770,9 @@ export async function generateGuide(
   onProgress: ProgressFn
 ): Promise<Guide> {
   const appInput = resolved.canonical_name;
+  // Research and drafting target the specific product when one was named
+  // ("Google Gmail"), but the slug below stays keyed to the company.
+  const subject = resolved.product ? `${appInput} ${resolved.product}` : appInput;
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const geminiCounter = { count: 0 };
   const tavilyCounter = { count: 0 };
@@ -777,10 +782,11 @@ export async function generateGuide(
       (d): d is string => Boolean(d)
     );
     const { notes, sourceUrls } = await research(
-      appInput,
+      subject,
       onProgress,
       tavilyCounter,
-      officialDomains
+      officialDomains,
+      slugify(appInput)
     );
 
     let lastError = "";
@@ -807,13 +813,13 @@ export async function generateGuide(
       }
     };
 
-    const first = await draft(ai, appInput, notes, sourceUrls, onProgress, geminiCounter);
+    const first = await draft(ai, subject, notes, sourceUrls, onProgress, geminiCounter);
     const firstGuide = tryParse(first);
     if (firstGuide) return firstGuide;
 
     const second = await draft(
       ai,
-      appInput,
+      subject,
       notes,
       sourceUrls,
       onProgress,

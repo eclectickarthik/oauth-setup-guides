@@ -22,6 +22,12 @@ export const ResolvedAppSchema = z.object({
   developer_portal_url: z.string().url().nullable(),
   confidence: z.enum(["high", "medium", "low"]),
   corrected_from: z.string().nullable(),
+  // The specific product the user named inside a larger company (e.g.
+  // "Gmail" -> canonical_name "Google", product "Gmail"). Without this,
+  // canonicalizing to the company dropped the product entirely and a
+  // "Gmail" request came back as a generic Drive/Workspace guide. Optional
+  // so it stays out of the slug: Gmail and Google still share one guide URL.
+  product: z.string().nullable().optional(),
 });
 export type ResolvedApp = z.infer<typeof ResolvedAppSchema>;
 
@@ -32,6 +38,7 @@ const RESOLVE_JSON_SCHEMA = {
     official_domain: { type: "string" },
     developer_portal_url: { type: "string" },
     confidence: { type: "string", enum: ["high", "medium", "low"] },
+    product: { type: "string" },
   },
   required: ["canonical_name", "official_domain", "confidence"],
 };
@@ -43,6 +50,7 @@ Rules:
 - official_domain must be the company's OWN domain (e.g. "reddit.com") — never a third-party tool, scraper, browser extension, wrapper, review site, or tutorial site about the product, even if such a site would rank well in search results. If you are not certain of the real official domain, say so via a lower confidence rather than guessing one that merely contains the brand name.
 - Set confidence "low" if the input could plausibly mean more than one distinct real product, or you cannot confidently identify a real product at all.
 - Set confidence "high" only if the identification is unambiguous.
+- If the input names a specific product of a larger company (e.g. "Gmail", "Google Drive", "Outlook", "Azure DevOps"), canonical_name is the company ("Google", "Microsoft") and product is that product's name ("Gmail"). Omit product when the input is just the company itself or a single-product company (e.g. "GitHub", "Slack", "Reddit").
 - developer_portal_url is the company's own developer/API docs entry point if you know it for certain — omit the field entirely if you don't know a real one. Never guess a URL.
 - Output only the JSON described, nothing else.`;
 
@@ -57,6 +65,7 @@ async function askGemini(
   official_domain: string;
   developer_portal_url?: string;
   confidence: string;
+  product?: string;
 }> {
   const input = extraContext
     ? `App name or website as typed by the user: "${rawInput}"\n\nWeb search results for context:\n${extraContext}`
@@ -82,6 +91,7 @@ function toResolvedApp(
     official_domain?: string;
     developer_portal_url?: string;
     confidence?: string;
+    product?: string;
   },
   rawInput: string
 ): ResolvedApp {
@@ -99,6 +109,7 @@ function toResolvedApp(
     developer_portal_url: raw.developer_portal_url || null,
     confidence,
     corrected_from: correctedFrom,
+    product: raw.product?.trim() || null,
   });
 }
 
