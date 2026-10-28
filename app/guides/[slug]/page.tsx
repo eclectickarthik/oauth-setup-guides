@@ -159,7 +159,12 @@ export default async function GuidePage({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-4 text-sm text-zinc-600 dark:text-zinc-400">
-          <a href={guide.website} className="underline hover:text-black dark:hover:text-zinc-50">
+          <a
+            href={guide.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-black dark:hover:text-zinc-50"
+          >
             Website
           </a>
           {guide.websiteVerified === false && (
@@ -167,6 +172,8 @@ export default async function GuidePage({
           )}
           <a
             href={guide.developerPortalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             className="underline hover:text-black dark:hover:text-zinc-50"
           >
             Developer portal
