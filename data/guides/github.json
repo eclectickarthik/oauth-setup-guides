@@ -1,0 +1,90 @@
+{
+  "slug": "github",
+  "appName": "GitHub",
+  "website": "https://github.com",
+  "developerPortalUrl": "https://github.com/settings/developers",
+  "summary": "GitHub OAuth apps are created instantly in your account settings — no approval process. You get a client ID and secret immediately and can start testing right away.",
+  "difficulty": "easy",
+  "difficultyReason": "Creating an OAuth app is self-serve and instant for any account. There is no review step to use it; review only applies if you later want a GitHub App listed on the GitHub Marketplace.",
+  "time": {
+    "setup": "10-15 min",
+    "approvalWait": "None to create and use the app for any number of users",
+    "notes": "Rate limits for OAuth apps are higher once a user has authorized, and GitHub may ask you to verify your app's identity only if you request certain org-level permissions."
+  },
+  "whenReviewIsNeeded": [
+    {
+      "text": "No review is required to create or use a standard OAuth app, including for third-party users signing in.",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+    },
+    {
+      "text": "Review/listing is only needed if you want to publish a GitHub App on the GitHub Marketplace.",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/github-marketplace/github-marketplace-overview/requirements-for-listing-an-app-on-github-marketplace"]
+    }
+  ],
+  "requirements": [
+    {
+      "text": "A GitHub account (personal or organization) to register the app under.",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+    },
+    {
+      "text": "A homepage URL and an authorization callback URL (redirect URI) for your app.",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+    }
+  ],
+  "steps": [
+    {
+      "title": "Go to Developer settings",
+      "detail": "In GitHub, open Settings > Developer settings > OAuth Apps, then click 'New OAuth App'.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+    },
+    {
+      "title": "Fill in app details",
+      "detail": "Provide an application name, homepage URL, and authorization callback URL. The callback URL must exactly match what your app sends during the OAuth flow.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+    },
+    {
+      "title": "Generate a client secret",
+      "detail": "After registering, click 'Generate a new client secret'. Store the client ID and secret securely — the secret is shown only once.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+    },
+    {
+      "title": "Implement the authorization flow",
+      "detail": "Redirect users to GitHub's authorize endpoint with your client ID and requested scopes, then exchange the returned code for an access token.",
+      "actor": "agent",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps"]
+    }
+  ],
+  "blockers": [
+    {
+      "problem": "Callback URL mismatch causes GitHub to reject the authorization request.",
+      "fix": "Make sure the redirect_uri sent in your authorization request exactly matches the Authorization callback URL registered for the app (including path and trailing slashes).",
+      "evidence": "docs",
+      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+    }
+  ],
+  "agentCanDo": [
+    "Draft the authorization URL and scope list",
+    "Implement the code-for-token exchange",
+    "Write the callback handler"
+  ],
+  "humanMustDo": [
+    "Log into GitHub and register the OAuth app",
+    "Generate and securely store the client secret"
+  ],
+  "openQuestions": [
+    "Exact rate limit thresholds for OAuth apps depend on whether the user has authorized the app and whether you're on GitHub Enterprise; not independently verified here."
+  ],
+  "generatedBy": "manual",
+  "lastVerified": "2026-10-28"
+}
