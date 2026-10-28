@@ -202,13 +202,14 @@ pricing-aggregator blogs, never the providers' own pricing pages, despite
 the prompt's instruction to prefer official sources. The domain-ranking
 heuristic (`lib/agent.ts`'s `JUNK_DOMAINS`/`DOC_HINTS`) catches review
 sites and social platforms but doesn't recognize SEO content farms that
-don't match either list. The final X library guide
-(`data/guides/twitter.json`) is hand-sourced directly against
-`docs.x.com` rather than shipped from the raw agent output for this
-reason — the systemic fix (the cost field existing, the dated query
-firing, billing landing as a human step) worked exactly as intended; the
-source-quality gap for pricing-specific queries didn't, and is left here
-as a known issue rather than claimed as solved.
+don't match either list. Hand-correcting the generated X guide against
+`docs.x.com` directly (rather than shipping the raw agent output) showed
+the systemic fix worked exactly as intended — the cost field existing,
+the dated query firing, billing landing as a human step — while the
+source-quality gap for pricing-specific queries didn't; X isn't part of
+the shipped library (LinkedIn already covers the "gated" difficulty
+tier), so this is left here as a finding from live-testing the generation
+agent, not a claim about a shipped guide.
 
 **A misspelled app name could link to a third-party site instead of the
 real one.** Testing with "reddddit" (a typo for Reddit) surfaced this: the
@@ -313,6 +314,20 @@ to find the official *domain*.
 
 ## Limitations
 
+- **X (Twitter) and Reddit are intentionally left out of scope — both
+  actively block AI/agent scraping.** This is a bigger, structural issue
+  than the search-ranking tuning documented below: both providers run
+  anti-bot defenses (rate-limiting, CAPTCHAs, and ToS terms that
+  prohibit automated/AI access) against the exact kind of tool-driven
+  fetch this agent does, independent of how good the search queries or
+  domain-trust logic are. The extensive debugging below (resolving
+  Reddit's identity, ranking its official domain over blogs, and still
+  landing on the wrong product) was useful for understanding the
+  agent's failure modes, but it doesn't fix the underlying access
+  problem — no amount of query tuning gets past a provider that blocks
+  the scraper. X and Reddit are excluded from the demonstrated
+  library/live-generation scope for this reason, not reintroduced as
+  "fixed."
 - **The agent pipeline is noticeably weaker than hand-tested guides**,
   documented concretely in `docs/validation.md`'s "Agent-Generated vs.
   Manual" section: running the live agent on "GitHub" missed the OAuth App
