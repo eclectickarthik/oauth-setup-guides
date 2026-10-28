@@ -320,3 +320,38 @@ guides' `composioHandoff` field to the verified text, and updated
 `DRAFT_SYSTEM` in `lib/agent.ts` to state the real URL and flow explicitly
 so future live-generated guides get this right from the start rather than
 describing Composio vaguely.
+
+**Then actually hand-tested the whole chain, end to end, in the real
+products.** Doc-sourcing closed the gap between "assumed" and "confirmed
+against Composio's docs," but the guide's claim is about a live hand-off
+between two real systems (a GitHub OAuth App and Composio) — the only way
+to be sure it actually works is to run it. It was:
+
+1. Registered a real GitHub OAuth App (`composio-tesst`) with
+   `https://backend.composio.dev/api/v3/toolkits/auth/callback` as its
+   authorization callback URL, per the guide's steps.
+2. In Composio's dashboard (Auth Configs → GitHub), selected the OAuth2
+   scheme, enabled "Use your own developer credentials," and entered the
+   client ID/secret/redirect URI exactly as `composioHandoff` describes —
+   this created an enabled, `Custom`-management auth config with 1
+   connection, status `Active`.
+3. In the Composio Playground, prompted an agent to use the GitHub
+   connection. It triggered the expected end-user consent step (GitHub's
+   real OAuth screen — the thing explicitly excluded from the guide's own
+   steps, since that's the end user's action, not the developer's setup),
+   and after approving, the agent's tool call returned real data: a list
+   of 12 actual GitHub repositories, correctly scoped to the connected
+   account.
+4. Confirmed independently on GitHub's own side: Settings → Applications
+   → Installed GitHub Apps now lists "Composio Tesst" as an installed
+   app, alongside the account's other real integrations (Vercel, Linear,
+   Render, Deno Deploy) — GitHub's own record of the authorization, not
+   just Composio's.
+
+Every link in the chain is now independently confirmed by three separate
+systems (this app's guide, Composio's dashboard, GitHub's own settings),
+not just internally consistent within the guide. This is the strongest
+evidence level anything in this project has — stronger than the
+`hand_checked` claims elsewhere, which were "I did this provider's setup
+steps," not "I did the setup steps *and* confirmed the resulting
+integration actually moves real data."
