@@ -335,6 +335,9 @@ to be sure it actually works is to run it. It was:
    client ID/secret/redirect URI exactly as `composioHandoff` describes —
    this created an enabled, `Custom`-management auth config with 1
    connection, status `Active`.
+
+   ![Composio Auth Configs showing an enabled, active GitHub connection](images/composio-auth-config-active.png)
+
 3. In the Composio Playground, prompted an agent to use the GitHub
    connection. It triggered the expected end-user consent step (GitHub's
    real OAuth screen — the thing explicitly excluded from the guide's own
@@ -342,11 +345,16 @@ to be sure it actually works is to run it. It was:
    and after approving, the agent's tool call returned real data: a list
    of 12 actual GitHub repositories, correctly scoped to the connected
    account.
+
+   ![Composio Playground returning a real list of GitHub repositories](images/composio-playground-real-data.png)
+
 4. Confirmed independently on GitHub's own side: Settings → Applications
    → Installed GitHub Apps now lists "Composio Tesst" as an installed
    app, alongside the account's other real integrations (Vercel, Linear,
    Render, Deno Deploy) — GitHub's own record of the authorization, not
    just Composio's.
+
+   ![GitHub's own Installed GitHub Apps page listing Composio Tesst](images/github-installed-apps.png)
 
 Every link in the chain is now independently confirmed by three separate
 systems (this app's guide, Composio's dashboard, GitHub's own settings),
