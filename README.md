@@ -60,6 +60,9 @@ Deployed via the Vercel CLI; standard `vercel deploy` also works.
   shown — logged and cost-tracked separately from drafting.
 - Budgeted deterministically (fixed search queries, capped extracts, one
   retry on schema failure) to keep each generation predictable, ~20–60s.
+- **`composioHandoff`** (the guide's final step) states Composio's real
+  callback URL and bring-your-own-credentials dashboard flow — verified
+  against `docs.composio.dev` directly, not assumed from the spec.
 
 Full debugging history — every real bug found by testing generated
 guides, root cause, fix, and what's still not fully solved — is in
