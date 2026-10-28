@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getLibraryGuides } from "@/lib/library";
+import GenerateForm from "@/components/GenerateForm";
 
 const DIFFICULTY_STYLES: Record<string, string> = {
   easy: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
@@ -45,6 +46,8 @@ export default async function Home() {
             </Link>
           ))}
         </div>
+
+        <GenerateForm />
       </main>
     </div>
   );
