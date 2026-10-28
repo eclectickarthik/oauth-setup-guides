@@ -3,6 +3,7 @@ import { getLibraryGuide } from "@/lib/library";
 import { getGuideStore } from "@/lib/store";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import EvidenceBadge from "@/components/EvidenceBadge";
+import CopyableText from "@/components/CopyableText";
 import type { Evidence } from "@/lib/schema";
 import { pickOfficialDocsUrl } from "@/lib/domain";
 
@@ -103,7 +104,7 @@ export default async function GuidePage({
             <span className="mt-0.5 shrink-0">⚠️</span>
             <p>
               <span className="font-medium">No user-delegated OAuth here.</span>{" "}
-              {guide.oauthFit.reason}
+              <CopyableText text={guide.oauthFit.reason} />
             </p>
           </div>
         )}
@@ -126,7 +127,7 @@ export default async function GuidePage({
                   {OAUTH_FIT_LABEL[guide.oauthFit.value]}
                 </summary>
                 <p className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-zinc-200 bg-white p-2 text-xs font-normal text-zinc-700 shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                  {guide.oauthFit.reason}
+                  <CopyableText text={guide.oauthFit.reason} />
                 </p>
               </details>
             </div>
@@ -141,7 +142,7 @@ export default async function GuidePage({
               </p>
             )}
             <p className="mt-2 max-w-xl text-zinc-600 dark:text-zinc-400">
-              {guide.summary}
+              <CopyableText text={guide.summary} />
             </p>
             {guide.otherSurfaces.length > 0 && (
               <p className="mt-2 max-w-xl text-sm text-zinc-500 dark:text-zinc-500">
@@ -230,7 +231,7 @@ export default async function GuidePage({
             </div>
             <p className="mt-1 font-medium text-black dark:text-zinc-50">{guide.cost.value}</p>
             {guide.cost.notes && (
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{guide.cost.notes}</p>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400"><CopyableText text={guide.cost.notes} /></p>
             )}
           </Card>
         </section>
@@ -256,7 +257,7 @@ export default async function GuidePage({
                   {path.wait}
                 </p>
                 {path.notes && (
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{path.notes}</p>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400"><CopyableText text={path.notes} /></p>
                 )}
               </li>
             ))}
@@ -280,14 +281,14 @@ export default async function GuidePage({
                     ))}
                   </ul>
                   <p className="mt-1 text-sm italic text-zinc-500 dark:text-zinc-500">
-                    {option.tradeoff}
+                    <CopyableText text={option.tradeoff} />
                   </p>
                 </div>
               ))}
             </div>
             <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
               <span className="font-medium">Recommendation: </span>
-              {guide.decision.recommendation}
+              <CopyableText text={guide.decision.recommendation} />
             </p>
           </section>
         )}
@@ -306,7 +307,7 @@ export default async function GuidePage({
                     <code className="rounded bg-zinc-200 px-1 py-0.5 text-xs dark:bg-zinc-800">
                       {s.scope}
                     </code>{" "}
-                    <span className="text-zinc-600 dark:text-zinc-400">{s.why}</span>
+                    <span className="text-zinc-600 dark:text-zinc-400"><CopyableText text={s.why} /></span>
                   </li>
                 ))}
               </ul>
@@ -319,7 +320,7 @@ export default async function GuidePage({
                     <code className="rounded bg-zinc-200 px-1 py-0.5 text-xs dark:bg-zinc-800">
                       {s.scope}
                     </code>{" "}
-                    <span className="text-zinc-600 dark:text-zinc-400">{s.why}</span>
+                    <span className="text-zinc-600 dark:text-zinc-400"><CopyableText text={s.why} /></span>
                   </li>
                 ))}
               </ul>
@@ -330,7 +331,7 @@ export default async function GuidePage({
               {guide.scopes.modes.map((m, i) => (
                 <li key={i}>
                   <span className="font-medium text-zinc-700 dark:text-zinc-300">{m.name}: </span>
-                  {m.whenToUse}
+                  <CopyableText text={m.whenToUse} />
                 </li>
               ))}
             </ul>
@@ -346,7 +347,7 @@ export default async function GuidePage({
               {guide.prerequisites.map((claim, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
                   <EvidenceBadge evidence={claim.evidence} />
-                  <span className="text-zinc-700 dark:text-zinc-300">{claim.text}</span>
+                  <span className="text-zinc-700 dark:text-zinc-300"><CopyableText text={claim.text} /></span>
                 </li>
               ))}
             </ul>
@@ -375,14 +376,14 @@ export default async function GuidePage({
                   </div>
                 </div>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                  {step.description}
+                  <CopyableText text={step.description} />
                 </p>
                 {step.agentAssist && (
                   <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
                     <span className="font-medium text-zinc-600 dark:text-zinc-400">
                       Agent can help:{" "}
                     </span>
-                    {step.agentAssist}
+                    <CopyableText text={step.agentAssist} />
                   </p>
                 )}
               </li>
@@ -403,12 +404,12 @@ export default async function GuidePage({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="font-medium text-black dark:text-zinc-50">
-                      {blocker.problem}
+                      <CopyableText text={blocker.problem} />
                     </span>
                     <EvidenceBadge evidence={blocker.evidence} />
                   </div>
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    {blocker.fix}
+                    <CopyableText text={blocker.fix} />
                   </p>
                 </li>
               ))}
@@ -421,7 +422,9 @@ export default async function GuidePage({
             <p className="text-xs uppercase text-zinc-500">An agent can do</p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
               {guide.agentCanDo.map((item, i) => (
-                <li key={i}>{item}</li>
+                <li key={i}>
+                  <CopyableText text={item} />
+                </li>
               ))}
             </ul>
           </Card>
@@ -429,7 +432,9 @@ export default async function GuidePage({
             <p className="text-xs uppercase text-zinc-500">A human must do</p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
               {guide.humanMustDo.map((item, i) => (
-                <li key={i}>{item}</li>
+                <li key={i}>
+                  <CopyableText text={item} />
+                </li>
               ))}
             </ul>
           </Card>
@@ -438,7 +443,7 @@ export default async function GuidePage({
         <section className="mt-8 rounded-lg border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900">
           <p className="text-xs uppercase text-zinc-500">Composio handoff</p>
           <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
-            {guide.composioHandoff}
+            <CopyableText text={guide.composioHandoff} />
           </p>
         </section>
 
@@ -492,7 +497,9 @@ export default async function GuidePage({
             </h2>
             <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
               {guide.openQuestions.map((item, i) => (
-                <li key={i}>{item}</li>
+                <li key={i}>
+                  <CopyableText text={item} />
+                </li>
               ))}
             </ul>
           </section>
@@ -505,7 +512,9 @@ export default async function GuidePage({
             </h2>
             <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
               {guide.verifierUnverified.map((item, i) => (
-                <li key={i}>{item}</li>
+                <li key={i}>
+                  <CopyableText text={item} />
+                </li>
               ))}
             </ul>
           </section>
