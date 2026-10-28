@@ -3,7 +3,8 @@
 // Loads the hand-checked guide (answer key, data/guides/<slug>.json) and
 // the agent-generated one (generated/<slug>.json, from `npm run generate`),
 // has the LLM label every generated claim against the answer key, and
-// writes a human-reviewable report to comparisons/<slug>.md.
+// writes a human-reviewable report to docs/comparisons/<slug>.md, which
+// the /compare page renders.
 
 import "./load-env";
 import { promises as fs } from "fs";
@@ -12,7 +13,7 @@ import { GoogleGenAI } from "@google/genai";
 import { Guide, GuideSchema } from "../lib/schema";
 import { MODEL, slugify } from "../lib/agent";
 
-const COMPARISONS_DIR = path.join(process.cwd(), "comparisons");
+const COMPARISONS_DIR = path.join(process.cwd(), "docs", "comparisons");
 
 type Label = "correct" | "wrong" | "outdated" | "unsupported";
 

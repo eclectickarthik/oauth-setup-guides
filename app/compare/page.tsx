@@ -40,7 +40,8 @@ export default async function ComparePage() {
           <code className="rounded bg-zinc-200 px-1 py-0.5 dark:bg-zinc-800">
             npm run compare
           </code>{" "}
-          and the numbers below can change.
+          and the numbers below can change. The Google guide is generated from
+          the input &ldquo;Gmail&rdquo;, the same API the answer key covers.
         </p>
 
         <div className="mt-10 space-y-12">

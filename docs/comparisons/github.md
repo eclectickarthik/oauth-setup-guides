@@ -1,13 +1,13 @@
 # Comparison: GitHub
 
-The generated guide captures the core flow of creating a GitHub OAuth App, but misses several important details present in the hand-checked guide (such as specific scope default behaviors, optional form checkboxes, and common user pitfalls like confusing homepage URL with callback URL).
+The generated guide closely mirrors the answer key on general OAuth setup mechanics, but differs in scope definitions (inventing 'offline_access' which isn't how GitHub handles refresh tokens—GitHub uses token expiry settings instead) and misses several key blockers and advanced configuration details like wildcard matching, device flow toggles, and homepage URL mistakes.
 
 ## Wrong (2)
 
-- **[scopes.minimum]** read:user is a minimum scope for GitHub OAuth Apps.
-  - Answer key notes that GitHub OAuth Apps actually default to read access on public data with no scope required at all.
-- **[scopes.optional]** offline_access is an optional scope for GitHub OAuth Apps.
-  - Answer key does not list offline_access; GitHub uses an 'Expire user access tokens' setting rather than an offline_access scope to issue refresh tokens.
+- **[scopes.minimum]** read:user is a minimum required scope for GitHub OAuth Apps
+  - Answer key notes that GitHub OAuth Apps default to read access on public data with no explicit scope required.
+- **[scopes.optional]** offline_access is an optional scope for GitHub OAuth Apps
+  - GitHub does not use an 'offline_access' scope; refresh tokens are controlled via the 'Expire user access tokens' setting in the app configuration.
 
 ## Outdated (0)
 
@@ -23,8 +23,8 @@ _None._
 
 ## Missed from the hand-checked guide (5)
 
-- **[decision]** The entire decision section comparing OAuth App vs. GitHub App and their respective use cases/tradeoffs was omitted.
-- **[prerequisites]** Missing the requirement for a homepage URL and the limit of up to 10 redirect URIs per OAuth App.
-- **[steps]** Missing Step 3 covering the review of optional settings (wildcard matching, device flow, token expiry).
-- **[blockers]** Missing blockers regarding the homepage URL vs. callback URL confusion, unverified optional checkboxes, and the inability to delete the only client secret.
-- **[openQuestions]** The entire openQuestions section noting unverified details was omitted.
+- **[decision]** The choice between OAuth App and GitHub App, along with their specific trade-offs and when to pick each.
+- **[setupTime]** The estimated setup time of 5-10 minutes.
+- **[steps]** Step regarding reviewing optional settings like wildcard matching, device flow, and token expiry.
+- **[blockers]** The blocker regarding accidentally putting the callback URL in the Homepage URL field.
+- **[blockers]** The blocker regarding the inability to delete your only client secret.
