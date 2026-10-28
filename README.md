@@ -1,5 +1,8 @@
 # OAuth Setup Guides
 
+**Live:** https://oauth-setup-guides-nine.vercel.app (password `composio`)
+**Source:** https://github.com/eclectickarthik/oauth-setup-guides
+
 A web app that helps a developer figure out how to set up a provider OAuth
 app (Google, Slack, GitHub, etc.) and get it approved, so their AI agent's
 users can connect that provider. It does **not** perform OAuth, handle
@@ -32,24 +35,26 @@ when prompted.
 
 ## Deploy
 
-Standard Vercel deploy (`vercel deploy` or connect the repo in the
-dashboard) — no special build config needed. One thing to set up first:
+Deployed via the Vercel CLI, linked to the GitHub repo above (standard
+`vercel deploy` / connect-the-repo flow, no special build config needed).
+`GEMINI_API_KEY`, `TAVILY_API_KEY`, and `SITE_PASSWORD` are set as
+production env vars; Vercel's own deployment-protection SSO wall is
+turned off so the link above is reachable without a Vercel login (the
+app's own password gate is the only thing in front of it).
 
-**Production needs `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.**
-Without them, `getGuideStore()` falls back to writing JSON files under
-`/data/generated` (`lib/store.ts`) — fine for local dev, but Vercel's
-serverless functions don't share or persist a filesystem across
-invocations, so every generated guide would vanish the moment the
-function instance that created it is recycled. A free Upstash Redis
+**One known gap in the current deploy: no Upstash Redis.** Without
+`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, `getGuideStore()`
+falls back to writing JSON files under `/data/generated` (`lib/store.ts`)
+— fine for local dev, but Vercel's serverless functions don't share or
+persist a filesystem across invocations, so a guide generated live on
+the deployed link will work and render immediately, but isn't guaranteed
+to still be there if the serverless instance that created it gets
+recycled before someone reopens the share link. A free Upstash Redis
 database (a few minutes to set up at
-[upstash.com](https://upstash.com)) makes generated guides actually
-persist and be shareable in production; the `UpstashGuideStore`
-implementation is already written and picked automatically once those two
-env vars are set, no code change needed.
-
-Set all four env vars from `.env.example` (`GEMINI_API_KEY`,
-`TAVILY_API_KEY`, the two Upstash ones) in the Vercel project settings
-before the first deploy.
+[upstash.com](https://upstash.com)) would make generated guides actually
+persist — the `UpstashGuideStore` implementation is already written and
+picked automatically once those two env vars are set, no code change
+needed; just not set up for this submission.
 ### Environment variables
 
 | Variable | Required | Notes |
