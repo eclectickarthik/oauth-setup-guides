@@ -3,13 +3,19 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* SF Pro itself can't be bundled for the web (Apple doesn't license it
+     for that), but -apple-system / BlinkMacSystemFont resolve to the real
+     SF Pro on macOS and iOS — the standard way sites get the native Apple
+     look there, with sane fallbacks on every other platform. */
+  --font-system-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-jetbrains-mono);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-sans: var(--font-system-sans);
+  --font-mono: ui-monospace, "SF Mono", monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +28,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-family: var(--font-system-sans);
 }
