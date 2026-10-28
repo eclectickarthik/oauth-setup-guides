@@ -4,35 +4,52 @@
   "website": "https://github.com",
   "developerPortalUrl": "https://github.com/settings/developers",
   "summary": "GitHub OAuth apps are created instantly in your account settings — no approval process. You get a client ID and secret immediately and can start testing right away.",
+  "decision": {
+    "question": "OAuth App or GitHub App?",
+    "options": [
+      {
+        "name": "OAuth App",
+        "pickWhen": [
+          "Agent acts on behalf of a user across their GitHub",
+          "You want the quickest setup with no install step"
+        ],
+        "tradeoff": "Faster to set up, but grants broad access to the user's GitHub rather than scoped, per-repo access."
+      },
+      {
+        "name": "GitHub App",
+        "pickWhen": [
+          "Agent works inside a team or org and needs access to specific repos only",
+          "Agent should act as its own bot identity",
+          "Org admins restrict broad OAuth App access"
+        ],
+        "tradeoff": "Gives limited, per-repo access and is GitHub's recommended option, but takes longer to set up: there's an extra install step before it's live, a private key to manage, and 70+ permission toggles to review."
+      }
+    ],
+    "recommendation": "GitHub has two app types. OAuth App is faster but grants broad access. GitHub App gives limited, per-repo access and is GitHub's recommended option."
+  },
   "difficulty": "easy",
-  "difficultyReason": "Creating an OAuth app is self-serve and instant for any account. There is no review step to use it; review only applies if you later want a GitHub App listed on the GitHub Marketplace.",
+  "difficultyReason": "Creating an OAuth App is self-serve and instant for any account, with no review step. The only real decision up front is choosing OAuth App vs. GitHub App.",
   "time": {
-    "setup": "10-15 min",
-    "approvalWait": "None to create and use the app for any number of users",
-    "notes": "Rate limits for OAuth apps are higher once a user has authorized, and GitHub may ask you to verify your app's identity only if you request certain org-level permissions."
+    "setup": "5-10 min",
+    "approvalWait": "None"
   },
   "whenReviewIsNeeded": [
     {
-      "text": "No review is required to create or use a standard OAuth app, including for third-party users signing in.",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
-    },
-    {
-      "text": "Review/listing is only needed if you want to publish a GitHub App on the GitHub Marketplace.",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/github-marketplace/github-marketplace-overview/requirements-for-listing-an-app-on-github-marketplace"]
+      "text": "No review is required to create or use an OAuth App, including for third-party users signing in.",
+      "evidence": "tested",
+      "sources": []
     }
   ],
   "requirements": [
     {
       "text": "A GitHub account (personal or organization) to register the app under.",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+      "evidence": "tested",
+      "sources": []
     },
     {
-      "text": "A homepage URL and an authorization callback URL (redirect URI) for your app.",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+      "text": "A homepage URL and at least one redirect URI (callback URL) for your app. GitHub allows up to 10 redirect URIs per OAuth App.",
+      "evidence": "tested",
+      "sources": []
     }
   ],
   "steps": [
@@ -40,22 +57,29 @@
       "title": "Go to Developer settings",
       "detail": "In GitHub, open Settings > Developer settings > OAuth Apps, then click 'New OAuth App'.",
       "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+      "evidence": "tested",
+      "sources": []
     },
     {
       "title": "Fill in app details",
-      "detail": "Provide an application name, homepage URL, and authorization callback URL. The callback URL must exactly match what your app sends during the OAuth flow.",
+      "detail": "Provide an application name, homepage URL, and at least one redirect URI. The homepage URL is not verified — any well-formed URL works for testing, including http://localhost:3000.",
       "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+      "evidence": "tested",
+      "sources": []
+    },
+    {
+      "title": "Review the optional settings",
+      "detail": "Decide whether to enable 'Allow wildcard matching' (leave off unless you control all matching subdomains), 'Enable device flow' (only for CLI or headless agents), and 'Expire user access tokens' (on by default; issues a refresh token).",
+      "actor": "human",
+      "evidence": "tested",
+      "sources": []
     },
     {
       "title": "Generate a client secret",
-      "detail": "After registering, click 'Generate a new client secret'. Store the client ID and secret securely — the secret is shown only once.",
+      "detail": "After registering, click 'Generate a new client secret'. The client ID is shown immediately; the secret is shown once with a copy button — store both securely.",
       "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+      "evidence": "tested",
+      "sources": []
     },
     {
       "title": "Implement the authorization flow",
@@ -67,10 +91,28 @@
   ],
   "blockers": [
     {
-      "problem": "Callback URL mismatch causes GitHub to reject the authorization request.",
-      "fix": "Make sure the redirect_uri sent in your authorization request exactly matches the Authorization callback URL registered for the app (including path and trailing slashes).",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"]
+      "problem": "It's easy to put the OAuth callback URL into the Homepage URL field by mistake.",
+      "fix": "Homepage URL is just your app's info/marketing page. Put the exact callback URL your app sends as redirect_uri in the Redirect URI field instead.",
+      "evidence": "tested",
+      "sources": []
+    },
+    {
+      "problem": "The optional checkboxes (wildcard matching, device flow, token expiry) aren't explained on the form.",
+      "fix": "Leave 'Allow wildcard matching' off unless you control all matching subdomains. Enable 'Device flow' only for CLI or headless agents. Token expiry is on by default and issues a refresh token — leave it on unless you have a specific reason not to.",
+      "evidence": "tested",
+      "sources": []
+    },
+    {
+      "problem": "Choosing between OAuth App and GitHub App before starting isn't obvious, and switching later means starting over.",
+      "fix": "Use the decision above: OAuth App for the simplest per-user access across GitHub; GitHub App for scoped, per-repo, bot-identity access.",
+      "evidence": "tested",
+      "sources": []
+    },
+    {
+      "problem": "You cannot delete your only client secret.",
+      "fix": "Generate a second secret first, swap it into your app, then delete the old one.",
+      "evidence": "tested",
+      "sources": []
     }
   ],
   "agentCanDo": [
@@ -79,11 +121,14 @@
     "Write the callback handler"
   ],
   "humanMustDo": [
-    "Log into GitHub and register the OAuth app",
+    "Log into GitHub and register the OAuth App (or GitHub App)",
+    "Choose the optional settings not explained on the form",
     "Generate and securely store the client secret"
   ],
   "openQuestions": [
-    "Exact rate limit thresholds for OAuth apps depend on whether the user has authorized the app and whether you're on GitHub Enterprise; not independently verified here."
+    "Whether the client secret is shown only once (not checked by reloading the page)",
+    "Exact time for an experienced developer (3-5 min is an estimate, not tested)",
+    "Whether Marketplace listing adds a review step (not tested)"
   ],
   "generatedBy": "manual",
   "lastVerified": "2026-10-28"

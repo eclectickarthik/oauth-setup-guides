@@ -22,6 +22,35 @@ export default async function GuidePage({
         </h1>
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">{guide.summary}</p>
 
+        {guide.decision && (
+          <section className="mt-8 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
+              {guide.decision.question}
+            </h2>
+            <div className="mt-3 space-y-3">
+              {guide.decision.options.map((option, i) => (
+                <div key={i}>
+                  <p className="font-medium text-black dark:text-zinc-50">
+                    {option.name}
+                  </p>
+                  <ul className="mt-1 list-inside list-disc text-sm text-zinc-600 dark:text-zinc-400">
+                    {option.pickWhen.map((reason, j) => (
+                      <li key={j}>{reason}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-sm italic text-zinc-500 dark:text-zinc-500">
+                    {option.tradeoff}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
+              <span className="font-medium">Recommendation: </span>
+              {guide.decision.recommendation}
+            </p>
+          </section>
+        )}
+
         <section className="mt-8">
           <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
             Setup steps

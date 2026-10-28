@@ -7,6 +7,7 @@ A web app that helps developers set up a **provider OAuth app** (Google, Slack, 
 It does NOT perform OAuth, handle tokens, or create OAuth apps for anyone. It produces **guides**.
 
 Two features:
+
 1. **Guide library** — hand-checked guides for 3–5 apps with different difficulty levels.
 2. **Live generation** — a developer types any app name or website, an agent researches that app's developer docs, and a new guide is generated in real time with a shareable link.
 
@@ -54,7 +55,7 @@ type Evidence = "tested" | "docs" | "uncertain";
 type Claim = {
   text: string;
   evidence: Evidence;
-  sources: string[];        // URLs; required unless evidence === "tested"
+  sources: string[]; // URLs; required unless evidence === "tested"
 };
 
 type Step = {
@@ -70,23 +71,38 @@ type Guide = {
   appName: string;
   website: string;
   developerPortalUrl: string;
-  summary: string;                     // 2–3 sentences, plain language
+  summary: string; // 2–3 sentences, plain language
+  decision?: {
+    // "choose first" fork, shown before steps
+    question: string; // e.g. "OAuth App or GitHub App?"
+    options: {
+      name: string;
+      pickWhen: string[];
+      tradeoff: string;
+    }[];
+    recommendation: string;
+  };
   difficulty: "easy" | "medium" | "hard" | "gated";
   difficultyReason: string;
   time: {
-    setup: string;                     // e.g. "20–40 min"
-    approvalWait: string;              // e.g. "None for private use; 4–6 weeks for public"
+    setup: string; // e.g. "20–40 min"
+    approvalWait: string; // e.g. "None for private use; 4–6 weeks for public"
     notes?: string;
   };
-  whenReviewIsNeeded: Claim[];         // e.g. sensitive scopes, public distribution
-  requirements: Claim[];               // things to have ready before starting
+  whenReviewIsNeeded: Claim[]; // e.g. sensitive scopes, public distribution
+  requirements: Claim[]; // things to have ready before starting
   steps: Step[];
-  blockers: { problem: string; fix: string; evidence: Evidence; sources: string[] }[];
+  blockers: {
+    problem: string;
+    fix: string;
+    evidence: Evidence;
+    sources: string[];
+  }[];
   agentCanDo: string[];
   humanMustDo: string[];
-  openQuestions: string[];             // what couldn't be confirmed
+  openQuestions: string[]; // what couldn't be confirmed
   generatedBy: "manual" | "agent";
-  lastVerified: string;                // ISO date
+  lastVerified: string; // ISO date
 };
 ```
 
@@ -99,18 +115,19 @@ Validate every agent output with zod. If validation fails, retry once with the e
 - **Every claim needs a source URL.** If something can't be found, mark it `uncertain` and add it to `openQuestions`. Never guess times or requirements.
 - Keep setup time and approval wait separate.
 - Tag every step `agent` or `human`.
+- If the provider offers more than one app type or setup path (e.g. GitHub OAuth App vs GitHub App, Google Internal vs External, Slack single-workspace vs distributed), fill `decision` so the developer picks the right path before step 1.
 - Limit the agent to a fixed budget of searches/fetches (e.g. 12) so generation finishes in about 1–2 minutes.
 - Emit short progress events ("Searching for Calendly developer docs…", "Reading app review policy…") for the UI.
 - Output only JSON matching the schema.
 
 ## Demo apps for the library (varied on purpose)
 
-| App | Expected difficulty | Why |
-|---|---|---|
-| GitHub | easy | Instant OAuth app, no review |
-| Slack | medium | Instant for own workspace; Marketplace review to distribute |
-| Google (Gmail/Drive) | hard | Consent screen verification; restricted scopes may need a security assessment |
-| LinkedIn or X | gated | Partner program or paid tier required |
+| App                  | Expected difficulty | Why                                                                           |
+| -------------------- | ------------------- | ----------------------------------------------------------------------------- |
+| GitHub               | easy                | Instant OAuth app, no review                                                  |
+| Slack                | medium              | Instant for own workspace; Marketplace review to distribute                   |
+| Google (Gmail/Drive) | hard                | Consent screen verification; restricted scopes may need a security assessment |
+| LinkedIn or X        | gated               | Partner program or paid tier required                                         |
 
 These are hypotheses. Confirm each by attempting the setup or reading official docs, and record corrections in `/docs/validation.md`.
 

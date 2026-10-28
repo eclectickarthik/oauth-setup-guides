@@ -49,12 +49,26 @@ export type Blocker = z.infer<typeof BlockerSchema>;
 export const DifficultySchema = z.enum(["easy", "medium", "hard", "gated"]);
 export type Difficulty = z.infer<typeof DifficultySchema>;
 
+export const DecisionSchema = z.object({
+  question: z.string().min(1),
+  options: z.array(
+    z.object({
+      name: z.string().min(1),
+      pickWhen: z.array(z.string().min(1)),
+      tradeoff: z.string().min(1),
+    })
+  ).min(1),
+  recommendation: z.string().min(1),
+});
+export type Decision = z.infer<typeof DecisionSchema>;
+
 export const GuideSchema = z.object({
   slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "slug must be lowercase kebab-case"),
   appName: z.string().min(1),
   website: z.string().url(),
   developerPortalUrl: z.string().url(),
   summary: z.string().min(1),
+  decision: DecisionSchema.optional(),
   difficulty: DifficultySchema,
   difficultyReason: z.string().min(1),
   time: z.object({
