@@ -64,6 +64,18 @@ const JUNK_DOMAINS = [
 ];
 const DOC_HINTS = ["docs", "developer", "developers", "api"];
 
+// A provider can have multiple products that technically say "OAuth" —
+// e.g. Apple Ads (client_credentials, server-to-server access to your own
+// ad account) vs. Sign in with Apple (authorization_code, end-user
+// consent). A generic "<app> OAuth" search tends to match whichever page
+// uses the word "OAuth" more prominently, not whichever is actually the
+// end-user-facing product. These keyword sets catch that mismatch after
+// extraction so a second, more targeted search can run.
+const USER_DELEGATED_KEYWORDS =
+  /\bauthorization code\b|\bsign[- ]?in with\b|\bconsent screen\b|\bredirect the user\b|\buser authoriz|\buser consent\b/i;
+const CLIENT_CREDENTIALS_KEYWORDS =
+  /\bclient[_ ]credentials\b|\bserver[- ]to[- ]server\b|\byour own (ad )?account\b|\bapp-level token\b|\bapp-only\b/i;
+
 function scoreResult(result: { url: string; score?: number }, appSlug: string): number {
   let score = result.score ?? 0;
   let host: string;
@@ -126,6 +138,7 @@ const GUIDE_JSON_SCHEMA = {
     website: { type: "string" },
     developerPortalUrl: { type: "string" },
     summary: { type: "string" },
+    warning: { type: "string" },
     decision: {
       type: "object",
       properties: {
@@ -202,7 +215,11 @@ const BASELINE_AGENT_CAN_DO = [
 
 const DRAFT_SYSTEM = `You convert extracted OAuth developer-docs pages into a single structured guide for a developer who wants to set up an OAuth app with this provider (e.g. Google, Slack, GitHub) so an AI agent's users can connect it.
 
-MOST IMPORTANT CHECK, do this first: scan the titles and content of every source you were given for comparison language — "differences between X and Y", "X vs Y", "X or Y", multiple named app/client types. If ANY source describes more than one distinct app type or setup path (e.g. GitHub OAuth App vs. GitHub App, Google Internal vs. External), you MUST populate the "decision" field describing that choice. This is the single highest-value thing a guide can get right and the most commonly missed — do not skip it just because the rest of your answer is based on a different source.
+MOST IMPORTANT CHECKS, do these first, before writing anything else:
+
+1. Target the API a developer would use to let their END USERS connect their own accounts — the authorization_code flow with a consent step. A provider can have multiple products that technically say "OAuth": e.g. an Ads API that uses client_credentials for server-to-server access to the developer's OWN account (no end user involved at all) vs. a "Sign in with X" product that's the real end-user flow. If any source describes the client_credentials grant, server-to-server access, or "your own account/ad account" access with no end-user consent step, that is NOT what this guide is for. If the provider has several OAuth-enabled products, say in the summary which one this guide covers and why, and name the others so the reader knows they exist.
+2. Check the grant type every source actually describes. If EVERY source only documents client_credentials (server-to-server, no end-user consent, no redirect, no consent screen) and NONE describe authorization_code / a user sign-in step, set the "warning" field to one clear sentence stating this is NOT an end-user OAuth flow — still fill out the rest of the guide as best you can from what's available, but add to openQuestions that the real end-user-facing product (if one exists) should be researched separately by name. Leave "warning" unset entirely if the sources do describe a normal end-user authorization_code flow.
+3. Scan the titles and content of every source for comparison language — "differences between X and Y", "X vs Y", "X or Y", multiple named app/client types. If ANY source describes more than one distinct app type or setup path (e.g. GitHub OAuth App vs. GitHub App, Google Internal vs. External), you MUST populate the "decision" field describing that choice. This is the single highest-value thing a guide can get right and the most commonly missed — do not skip it just because the rest of your answer is based on a different source.
 
 Research thoroughly for:
 - How to create the OAuth app / register a client, and whether the provider offers more than one app type. If so, use the "decision" field for it (see the check above).
@@ -264,8 +281,11 @@ async function research(
   onProgress: ProgressFn,
   tavilyCounter: { count: number }
 ): Promise<ResearchResult> {
+  // "sign in" + "user login" + "authorization code" bias the search toward
+  // the end-user-facing product rather than whichever API page happens to
+  // say "OAuth" most prominently (e.g. an ads/server-to-server API).
   const queries = [
-    `${appInput} OAuth app setup developer docs`,
+    `${appInput} sign in OAuth user login authorization code developer documentation`,
     `${appInput} app review verification`,
   ].slice(0, SEARCH_QUERIES);
 
@@ -330,6 +350,42 @@ async function research(
       }
       tavilyCounter.count += fallbackCandidates.length;
       const moreExtracted = await tavilyExtract(fallbackCandidates.map((r) => r.url));
+      extracted.push(...moreExtracted);
+    }
+  }
+
+  // Resolve step: if everything extracted so far reads like client_credentials
+  // / server-to-server docs (e.g. an Ads API) with no sign of an end-user
+  // consent flow, this is very likely the wrong product for an agent builder
+  // whose users need to connect their own accounts. Search specifically for
+  // the "sign in with X" / user-authentication product before giving up —
+  // better to spend one more search than draft a guide for the wrong API.
+  const finalText = extracted.map((r) => r.raw_content.slice(0, PAGE_CHAR_LIMIT)).join("\n");
+  if (
+    CLIENT_CREDENTIALS_KEYWORDS.test(finalText) &&
+    !USER_DELEGATED_KEYWORDS.test(finalText)
+  ) {
+    onProgress(
+      `Found docs look like server-to-server access, not end-user sign-in — searching for the user-facing OAuth product…`,
+      "tavily"
+    );
+    tavilyCounter.count += 1;
+    const signInResults = await tavilySearch(
+      `"Sign in with ${appInput}" OR ${appInput} OAuth user authentication consent`,
+      5
+    );
+    const signInCandidates = signInResults
+      .filter((r) => !seen.has(r.url))
+      .sort((a, b) => scoreResult(b, appSlug) - scoreResult(a, appSlug))
+      .slice(0, FALLBACK_EXTRACT_CAP);
+
+    if (signInCandidates.length > 0) {
+      signInCandidates.forEach((r) => seen.add(r.url));
+      for (const r of signInCandidates) {
+        onProgress(`Found: ${r.title} (${r.url})`, "tavily");
+      }
+      tavilyCounter.count += signInCandidates.length;
+      const moreExtracted = await tavilyExtract(signInCandidates.map((r) => r.url));
       extracted.push(...moreExtracted);
     }
   }

@@ -68,6 +68,12 @@ export const GuideSchema = z.object({
   website: z.string().url(),
   developerPortalUrl: z.string().url(),
   summary: z.string().min(1),
+  // Set when the researched API doesn't actually offer a user-delegated
+  // (authorization_code) OAuth flow — e.g. it only supports client_credentials,
+  // server-to-server access to the developer's own account, with no end-user
+  // consent step at all. Rendered as a prominent banner instead of being
+  // silently presented as a normal setup guide.
+  warning: z.string().min(1).optional(),
   decision: DecisionSchema.optional(),
   difficulty: DifficultySchema,
   difficultyReason: z.string().min(1),

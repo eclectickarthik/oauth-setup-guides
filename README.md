@@ -109,6 +109,51 @@ verification"`), extraction capped at 4 pages, one Gemini drafting call
 with one retry on schema-validation failure. This keeps cost and latency
 predictable and keeps the whole run to roughly 20-40 seconds.
 
+## What I learned / corrected
+
+**Ambiguous provider names can resolve to the wrong product, and "OAuth" in
+a doc's title doesn't mean end-user OAuth.** Generating a guide for "Apple"
+initially surfaced the Apple Ads API — it literally says "OAuth 2.0" on the
+page — instead of Sign in with Apple, the thing an agent builder actually
+wants. The two are not interchangeable: Apple Ads uses the
+`client_credentials` grant, which is server-to-server access to the
+*developer's own* ad account. No end user is ever involved, no consent
+screen, nothing to redirect. Presenting that as a normal OAuth setup guide
+would have been actively misleading — correct docs, wrong API.
+
+The fix had to happen at the search-query level, not just in the drafting
+prompt, since prompting the model after the wrong pages were already
+extracted can't recover information that was never fetched:
+
+1. Reworded the primary research query to bias toward the end-user flow
+   (`"sign in" OAuth user login authorization code`) instead of a bare
+   `"<app> OAuth app setup"`, which matches whichever page says the word
+   "OAuth" most prominently.
+2. Added a resolve step: after extraction, if the pulled content reads like
+   `client_credentials`/server-to-server access with no sign of
+   `authorization_code` or a consent screen, the agent runs one more
+   targeted search for `"Sign in with <app>"` before giving up.
+3. Added an optional `warning` field to the guide schema. If every source
+   still only documents `client_credentials` with no end-user consent step,
+   the guide says so explicitly in a banner instead of silently presenting
+   a server-to-server integration as if a user could connect their account.
+
+Verified live: generating for "Apple" now finds Sign in with Apple
+directly, and generating for "Apple Ads" specifically correctly sets the
+warning ("This integration utilizes a client credentials / token exchange
+flow... rather than an end-user authorization code consent grant") instead
+of writing a normal-looking setup guide for it.
+
+**This isn't fully solved, and it's worth saying so.** The "Apple" run
+still blended Sign in with Apple together with an unrelated second product
+(Device Management's account-driven enrollment OAuth flow) into one step
+list, instead of picking one and naming the other out of scope — the
+`decision` field exists for exactly this case but didn't fire. Apple
+happens to have three OAuth-adjacent products under one name, which is an
+unusually sharp edge case; the fix above resolves the specific failure mode
+reported (wrong grant type entirely), not every possible multi-product
+ambiguity a provider name can hide.
+
 ## Limitations
 
 - **The agent pipeline is noticeably weaker than hand-tested guides**,

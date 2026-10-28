@@ -34,6 +34,12 @@ export default async function GuidePage({
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <main className="mx-auto max-w-3xl px-6 py-16">
+        {guide.warning && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
+            <span className="mt-0.5 shrink-0">⚠️</span>
+            <p>{guide.warning}</p>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
