@@ -136,9 +136,14 @@ publishing/verification were new in this test.
 
 ## Slack
 
+> **No longer a shipped library guide** — the library was later narrowed
+> to just GitHub and Google (both hand-checked) rather than mix in
+> docs-only entries; Slack is still fully covered via live generation.
+> Findings below are the original research, kept as a historical record.
+
 Researched 2026-10-28 from official docs only (docs.slack.dev, api.slack.com)
 — not hands-on tested, unlike the GitHub and Google guides above. Every claim
-in `data/guides/slack.json` is marked `evidence: "docs"`, never `"tested"`.
+was marked `evidence: "docs"`, never `"tested"`.
 
 **Confirmed from docs**
 
@@ -175,9 +180,13 @@ is equivalent to testing.
 
 ## LinkedIn
 
+> **No longer a shipped library guide** — same reason as Slack above;
+> still fully covered via live generation. Findings below are the
+> original research, kept as a historical record.
+
 Researched 2026-10-28 from Microsoft's official LinkedIn API docs
 (learn.microsoft.com/en-us/linkedin) only — not hands-on tested. Every
-claim in `data/guides/linkedin.json` is marked `evidence: "docs"`.
+claim was marked `evidence: "docs"`.
 
 **Confirmed from docs**
 

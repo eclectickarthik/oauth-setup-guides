@@ -10,13 +10,13 @@ tokens, or create OAuth apps for anyone — it produces guides.
 
 Two features:
 
-1. **Library** — guides for GitHub (easy), Slack (medium), Google (hard),
-   LinkedIn (gated) — spanning the full difficulty range on purpose.
-   GitHub and Google are hand-checked (`evidence.level: "hand_checked"` on
-   the claims that were actually verified against the real provider UI);
-   Slack and
-   LinkedIn are docs-researched, not hands-on tested — see
-   `docs/validation.md` and each guide page's footer label.
+1. **Library** — two hand-checked guides, GitHub (easy) and Google
+   (hard), with `evidence.level: "hand_checked"` on the claims that were
+   actually verified against the real provider UI — see
+   `docs/validation.md` and each guide page's footer label. Everything
+   else, including Slack and LinkedIn, is covered by live generation
+   instead (see below), not pre-curated — this keeps the library small
+   and genuinely hand-checked rather than padded with docs-only entries.
 2. **Live generation** — type any app name or website, and an agent
    researches its developer docs and generates a new guide in real time,
    streamed to the UI, saved and shareable at `/guides/<slug>`.
@@ -456,13 +456,6 @@ than flattening it into free text:
   for single-product providers and is unreliable for broad, multi-product
   providers unless the input names the specific product (e.g. "Gmail API",
   not "Google").
-- **The Slack and LinkedIn guides are docs-researched, not hands-on
-  tested** — every claim is marked `evidence.level: "doc_sourced"`, never
-  `"hand_checked"`, and `docs/validation.md` says so explicitly. They're
-  weaker than the
-  GitHub and Google guides for the same reason the agent's guides are: no
-  firsthand account of what the actual UI looks like or what breaks in
-  practice.
 - **Pricing-specific research queries pull third-party content farms, not
   official pricing pages.** Regenerating X and Reddit both returned pricing
   info entirely from SEO aggregator blogs rather than `docs.x.com` or
