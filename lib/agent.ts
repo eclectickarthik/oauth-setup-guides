@@ -414,6 +414,7 @@ Given extracted developer-docs pages for a provider (e.g. Google, Slack, GitHub)
 CONTEXT
 - Composio handles the OAuth runtime: building auth URLs, callbacks, token exchange, refresh, and storing tokens. Do NOT include any of that as a setup step or an agentCanDo/humanMustDo item, anywhere.
 - The developer's job is: get a provider account, register the OAuth app, configure redirect URIs and scopes, pass any review/verification, then hand the client ID + secret to Composio (the "composioHandoff" field is literally this last step, stated concretely).
+- Composio's actual redirect/callback URL to register in the provider's OAuth app is https://backend.composio.dev/api/v3/toolkits/auth/callback (verified against Composio's own docs — use this exact URL in "composioHandoff" and anywhere else the redirect URI value matters, don't invent a different one or describe it vaguely as "Composio's callback URL"). The dashboard flow is: select the OAuth2 scheme for this provider, enable "Use your own developer credentials", then enter the client ID, client secret, and that same redirect URI to create the auth config.
 - Never include "the user authorizes/consents via the consent screen" as a step. That's the END USER connecting their account later, not the developer's one-time setup.
 
 STEP 1: PICK THE RIGHT SURFACE
@@ -429,7 +430,7 @@ Give one concrete sentence in "reason". If "no_oauth" or "sign_in_only", still r
 RESEARCH, for the chosen surface:
 - How to create the OAuth app / register a client, and whether the provider offers more than one distinct app type or setup path (e.g. GitHub OAuth App vs. GitHub App, Google Internal vs. External). If so, populate the "decision" field describing that choice — this is the single highest-value thing a guide can get right and the most commonly missed; scan every source for comparison language ("differences between X and Y", "X vs Y") before concluding there's only one path.
 - Whether any setting is permanent or irreversible once chosen at creation time. Call this out as a blocker if the docs mention one.
-- Redirect URI rules. The redirect URI the developer registers is Composio's callback URL, not anything the developer builds — state the rules (format, HTTPS requirement, exact-match vs. wildcard) as something to register correctly.
+- Redirect URI rules. The redirect URI the developer registers is https://backend.composio.dev/api/v3/toolkits/auth/callback (Composio's own callback URL, not anything the developer builds) — state the rules (format, HTTPS requirement, exact-match vs. wildcard) as something to register correctly, and name that exact URL rather than describing it vaguely.
 - Scopes: separate "minimum for a typical agent integration" ("scopes.minimum") from "optional/advanced" ("scopes.optional"). If the provider has special modes (e.g. acting as the user vs. acting as the app/bot), explain each in "scopes.modes" with when to pick which, one line each.
 - Whether the provider classifies scopes into tiers (basic / sensitive / restricted or equivalent). For each tier beyond the most basic, state what it requires (additional verification, a security assessment, cost, turnaround time, whether it's renewed periodically) in "scopes.evidence"/"approval.paths" as appropriate — never fold this into one vague "review is needed" line.
 - Approval: give a concrete range PER PATH in "approval.paths" (e.g. one path for internal/private use, one for a public listing, one for a verified/restricted tier) — each with its own wait and whether review is required. Never write "varies" with nothing else.
@@ -473,7 +474,7 @@ STEPS: tag each with "owner" — "human" (requires login, payment, or legal acti
 OTHER RULES
 - "difficulty" is one of easy/medium/hard/gated — weigh the hardest approval path's requirements, not just the easiest one; a provider can look easy until production access turns out to need verification, a paid security assessment, or a partner program.
 - Only include "decision" if the sources describe more than one distinct setup path — omit it entirely otherwise.
-- "composioHandoff" is one concrete sentence: what exactly to paste into Composio (client ID, client secret, which redirect URI value) to finish the integration.
+- "composioHandoff" states: register https://backend.composio.dev/api/v3/toolkits/auth/callback as the redirect URI, then in Composio's dashboard select this provider's OAuth2 scheme, enable "Use your own developer credentials", and enter the client ID, client secret, and that same redirect URI to create the auth config.
 - "generatedBy" must be exactly "agent". "lastVerified" must be today's date in ISO format (YYYY-MM-DD). "slug" must be lowercase-kebab-case derived from the app name.`;
 
 export type ProgressService = "tavily" | "gemini" | "verifier";

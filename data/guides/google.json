@@ -224,7 +224,7 @@
     "Decide whether to mark the client as an AI-powered agent",
     "Submit for verification and/or the CASA security assessment before going to production with sensitive/restricted scopes"
   ],
-  "composioHandoff": "Paste the client ID and client secret into Composio, with Composio's callback URL registered as an Authorised redirect URI — Composio manages the authorization flow, token exchange, and refresh from there.",
+  "composioHandoff": "Register https://backend.composio.dev/api/v3/toolkits/auth/callback as an Authorised redirect URI. In Composio's dashboard, select the OAuth2 scheme for Google, enable 'Use your own developer credentials', and enter the client ID, client secret, and that same redirect URI to create the auth config — Composio manages the authorization flow, token exchange, and refresh from there.",
   "openQuestions": [
     "Exact Data access tier shown for gmail.readonly (not added during this test; docs list it as restricted)",
     "Whether the unverified-app warning reappears for gmail.readonly on a repeat sign-in attempt, or only shows once",

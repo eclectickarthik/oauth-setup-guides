@@ -298,3 +298,25 @@ than flattening it into free text:
    a provider with several genuinely blended surfaces is still an open
    problem, consistent with the Apple Ads finding earlier in this
    section.
+
+**The `composioHandoff` field described Composio's own behavior without
+ever having checked Composio's own docs for it.** Every guide's final
+field said some version of "paste the client ID and secret into Composio,
+with Composio's callback URL registered as the redirect URI" — accurate
+in spirit (this app's whole premise, that Composio manages the OAuth
+runtime, came from the original assignment spec), but the specific
+mechanics were never verified against Composio's actual product, the one
+thing this project never ran through its own research pipeline. Asked
+directly whether this was checked — it hadn't been.
+
+Fetched Composio's own docs (`docs.composio.dev`) to check: confirmed
+Composio does support bringing your own OAuth app, but the real mechanics
+are more specific than the guide said — the actual callback URL is
+`https://backend.composio.dev/api/v3/toolkits/auth/callback`, and it's not
+just "paste into Composio" but a specific dashboard flow (select the
+OAuth2 scheme, enable "Use your own developer credentials", enter client
+ID/secret/redirect URI to create an auth config). Updated both library
+guides' `composioHandoff` field to the verified text, and updated
+`DRAFT_SYSTEM` in `lib/agent.ts` to state the real URL and flow explicitly
+so future live-generated guides get this right from the start rather than
+describing Composio vaguely.

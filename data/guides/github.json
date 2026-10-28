@@ -155,7 +155,7 @@
     "Choose the optional settings not explained on the form",
     "Generate and securely store the client secret"
   ],
-  "composioHandoff": "Paste the client ID and client secret into Composio, with Composio's callback URL registered as the OAuth App's redirect URI — Composio manages the authorization flow, token exchange, and refresh from there.",
+  "composioHandoff": "Register https://backend.composio.dev/api/v3/toolkits/auth/callback as the OAuth App's redirect URI. In Composio's dashboard, select the OAuth2 scheme for GitHub, enable 'Use your own developer credentials', and enter the client ID, client secret, and that same redirect URI to create the auth config — Composio manages the authorization flow, token exchange, and refresh from there.",
   "openQuestions": [
     "Whether the client secret is shown only once (not checked by reloading the page)",
     "Exact time for an experienced developer (3-5 min is an estimate, not tested)",
