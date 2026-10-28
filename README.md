@@ -210,6 +210,44 @@ firing, billing landing as a human step) worked exactly as intended; the
 source-quality gap for pricing-specific queries didn't, and is left here
 as a known issue rather than claimed as solved.
 
+**A misspelled app name could link to a third-party site instead of the
+real one.** Testing with "reddddit" (a typo for Reddit) surfaced this: the
+guide content was correctly about Reddit, but the "Website" link pointed
+to `redditcommentscraper.com` and the page title rendered the raw typo.
+The cause was structural, not a prompt-wording issue — search queries,
+extraction, and link selection all ran directly on the raw user input, so
+whatever ranked well for "reddddit" (a site whose domain happens to
+contain the brand name) got treated as the app's own site.
+
+The fix adds a dedicated identity-resolution phase before any
+research/generation, plus a deterministic check that doesn't trust the
+model's output on faith:
+
+1. `lib/resolve.ts`'s `resolveApp()` runs first and asks the model to fix
+   typos and name the real product's *own* domain — explicitly instructed
+   to never return a third-party tool, scraper, wrapper, or review site,
+   even one that would rank well in search. If confidence comes back low,
+   it escalates to one Tavily search for confirmation before answering
+   again. Every later step (search queries, drafting, the slug) uses this
+   resolved `canonical_name`/`official_domain`, never the raw input.
+2. `lib/domain.ts` adds a registrable-domain (eTLD+1) check via `tldts`.
+   `enforceOfficialLinks()` in `lib/agent.ts` runs this against every
+   drafted `website`/`developerPortalUrl` before a guide is ever returned:
+   a brand name merely appearing inside a domain string (`reddit` inside
+   `redditcommentscraper.com`) does not count as owning that domain. A
+   failing URL falls back to `https://{official_domain}`, or is marked
+   `websiteVerified: false` / `developerPortalVerified: false` (rendered
+   as "(unverified)" in the UI) if even that can't be confirmed.
+3. Low-confidence resolutions now pause before the expensive research run:
+   the UI shows "Did you mean X?" with Yes / Search-anyway, instead of
+   silently generating a guide for a guess.
+
+Verified with unit tests (`lib/domain.test.ts`, `lib/resolve.test.ts`,
+`lib/agent.test.ts`) that assert the exact failure mode directly:
+`redditcommentscraper.com` is rejected and replaced with `https://reddit.com`
+for a resolved Reddit identity, while an already-correct URL on the real
+domain (or the developer portal's domain) is left untouched.
+
 ## Limitations
 
 - **The agent pipeline is noticeably weaker than hand-tested guides**,

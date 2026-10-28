@@ -85,6 +85,13 @@ export const GuideSchema = z.object({
   appName: z.string().min(1),
   website: z.string().url(),
   developerPortalUrl: z.string().url(),
+  // False when the website/developerPortalUrl link above could not be
+  // confirmed to belong to the resolved app's official domain (and a
+  // confirmed fallback wasn't available either) — rendered as "unverified"
+  // in the UI rather than presented as fact. Omitted (treated as verified)
+  // on hand-checked library guides, where the URL was chosen by a human.
+  websiteVerified: z.boolean().optional(),
+  developerPortalVerified: z.boolean().optional(),
   summary: z.string().min(1),
   // Set when the researched API doesn't actually offer a user-delegated
   // (authorization_code) OAuth flow — e.g. it only supports client_credentials,

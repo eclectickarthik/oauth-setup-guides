@@ -9,17 +9,30 @@ import "./load-env";
 import { promises as fs } from "fs";
 import path from "path";
 import { generateGuide, slugify } from "../lib/agent";
+import { resolveApp } from "../lib/resolve";
 
 const OUTPUT_DIR = path.join(process.cwd(), "generated");
 
 async function main() {
-  const appInput = process.argv.slice(2).join(" ").trim();
-  if (!appInput) {
+  const rawInput = process.argv.slice(2).join(" ").trim();
+  if (!rawInput) {
     console.error("Usage: npm run generate -- <app name or website>");
     process.exit(1);
   }
 
-  const slug = slugify(appInput);
+  console.log(`Resolving "${rawInput}"...`);
+  const resolved = await resolveApp(rawInput, (message) => console.log(`  ${message}`));
+  if (resolved.corrected_from) {
+    console.log(`Resolved to "${resolved.canonical_name}" (${resolved.official_domain}).`);
+  }
+  if (resolved.confidence === "low") {
+    console.log(
+      `Note: low confidence on this resolution — proceeding anyway (this CLI has no ` +
+        `interactive confirm step; the web UI does).`
+    );
+  }
+
+  const slug = slugify(resolved.canonical_name);
   const handCheckedPath = path.join(process.cwd(), "data", "guides", `${slug}.json`);
   const handCheckedExists = await fs
     .access(handCheckedPath)
@@ -29,13 +42,13 @@ async function main() {
   if (handCheckedExists) {
     console.log(
       `Note: a hand-checked guide already exists at data/guides/${slug}.json — ` +
-        `this run will NOT touch it. Use "npm run compare -- ${appInput}" afterward.`
+        `this run will NOT touch it. Use "npm run compare -- ${resolved.canonical_name}" afterward.`
     );
   }
 
-  console.log(`Generating guide for "${appInput}"...\n`);
+  console.log(`Generating guide for "${resolved.canonical_name}"...\n`);
 
-  const guide = await generateGuide(appInput, (message) => {
+  const guide = await generateGuide(resolved, (message) => {
     console.log(`  ${message}`);
   });
 

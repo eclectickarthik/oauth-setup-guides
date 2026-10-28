@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 type ProgressEntry = { message: string; service?: "tavily" | "gemini" };
+type ConfirmPrompt = { canonicalName: string; officialDomain: string; rawInput: string };
 
 const SERVICE_LABEL: Record<string, string> = {
   tavily: "Tavily",
@@ -31,17 +32,18 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState("");
+  const [confirmPrompt, setConfirmPrompt] = useState<ConfirmPrompt | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const value = input.trim();
-    if (!value || status === "running") return;
-
+  async function runGenerate(
+    value: string,
+    opts: { confirmed?: boolean; forceRaw?: boolean } = {}
+  ) {
     setStatus("running");
     setProgress([]);
     setExpanded(false);
     setError("");
+    setConfirmPrompt(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -50,7 +52,7 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ input: value }),
+        body: JSON.stringify({ input: value, ...opts }),
         signal: controller.signal,
       });
 
@@ -59,6 +61,7 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let correctedFrom = "";
 
       while (true) {
         const { done, value: chunk } = await reader.read();
@@ -78,8 +81,19 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
 
           if (eventType === "progress") {
             setProgress((prev) => [...prev, { message: data.message, service: data.service }]);
+          } else if (eventType === "resolved") {
+            correctedFrom = data.rawInput;
+          } else if (eventType === "confirm") {
+            setStatus("idle");
+            setConfirmPrompt({
+              canonicalName: data.canonicalName,
+              officialDomain: data.officialDomain,
+              rawInput: data.rawInput,
+            });
+            return;
           } else if (eventType === "done") {
-            router.push(`/guides/${data.slug}`);
+            const query = correctedFrom ? `?from=${encodeURIComponent(correctedFrom)}` : "";
+            router.push(`/guides/${data.slug}${query}`);
             return;
           } else if (eventType === "error") {
             setStatus("error");
@@ -95,6 +109,13 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
       setStatus("error");
       setError(err instanceof Error ? err.message : "Generation failed");
     }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const value = input.trim();
+    if (!value || status === "running") return;
+    runGenerate(value);
   }
 
   const current = progress[progress.length - 1];
@@ -118,6 +139,33 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
           {status === "running" ? "Generating…" : "Generate"}
         </button>
       </form>
+
+      {confirmPrompt && (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-700/60 dark:bg-amber-900/20">
+          <p className="text-amber-900 dark:text-amber-200">
+            Did you mean <span className="font-medium">{confirmPrompt.canonicalName}</span>{" "}
+            ({confirmPrompt.officialDomain})?
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => runGenerate(confirmPrompt.canonicalName, { confirmed: true })}
+              className="rounded-md bg-black px-4 py-1.5 text-sm font-medium text-white dark:bg-zinc-50 dark:text-black"
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                runGenerate(confirmPrompt.rawInput, { confirmed: true, forceRaw: true })
+              }
+              className="rounded-md border border-amber-300 px-4 py-1.5 text-sm font-medium text-amber-900 dark:border-amber-700/60 dark:text-amber-200"
+            >
+              Search anyway
+            </button>
+          </div>
+        </div>
+      )}
 
       {current && (
         <div className="mt-4 text-sm">

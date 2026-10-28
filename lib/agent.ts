@@ -1,8 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { Guide, GuideSchema } from "./schema";
 import { tavilyExtract, tavilySearch } from "./tavily";
+import { MODEL } from "./config";
+import { extractJson } from "./json-utils";
+import { isOfficialUrl, registrableDomain } from "./domain";
+import type { ResolvedApp } from "./resolve";
 
-export const MODEL = process.env.LLM_MODEL || "gemini-3.5-flash-lite";
+export { MODEL };
 
 // Research budget: Gemini's own Google Search grounding tool turned out to
 // have zero free quota on this project even though plain generation worked
@@ -278,14 +282,54 @@ export function slugify(input: string): string {
   );
 }
 
-function extractJson(text: string): string {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  return (fenced ? fenced[1] : text).trim();
-}
-
 function ensureAgentCanDo(guide: Guide): Guide {
   if (guide.agentCanDo.length > 0) return guide;
   return { ...guide, agentCanDo: BASELINE_AGENT_CAN_DO };
+}
+
+// A drafted website/developerPortalUrl came from whatever page the model
+// extracted it from — not necessarily the resolved, trusted identity. A
+// typo'd input like "reddddit" previously could lead the research step to
+// extract a third-party scraper site (redditcommentscraper.com), and the
+// drafted guide would present that as the app's own website. Enforce
+// against the resolved official domain before the guide is ever returned:
+// keep the drafted URL only if it's actually on that domain (or the
+// resolved developer portal's domain); otherwise fall back to
+// https://{officialDomain}; if even that can't be confirmed, mark the
+// field unverified rather than silently keeping an unconfirmed URL.
+export function enforceOfficialLinks(guide: Guide, resolved: ResolvedApp): Guide {
+  const officialDomainValid = Boolean(registrableDomain(resolved.official_domain));
+  const portalDomain = resolved.developer_portal_url
+    ? registrableDomain(resolved.developer_portal_url)
+    : null;
+
+  const isTrusted = (url: string) =>
+    isOfficialUrl(url, resolved.official_domain) ||
+    (portalDomain !== null && registrableDomain(url) === portalDomain);
+
+  let website = guide.website;
+  let websiteVerified = true;
+  if (!isTrusted(website)) {
+    if (officialDomainValid) {
+      website = `https://${resolved.official_domain}`;
+    } else {
+      websiteVerified = false;
+    }
+  }
+
+  let developerPortalUrl = guide.developerPortalUrl;
+  let developerPortalVerified = true;
+  if (!isTrusted(developerPortalUrl)) {
+    if (resolved.developer_portal_url) {
+      developerPortalUrl = resolved.developer_portal_url;
+    } else if (officialDomainValid) {
+      developerPortalUrl = `https://${resolved.official_domain}`;
+    } else {
+      developerPortalVerified = false;
+    }
+  }
+
+  return { ...guide, website, developerPortalUrl, websiteVerified, developerPortalVerified };
 }
 
 type ResearchResult = { notes: string; sourceUrls: string[] };
@@ -460,10 +504,15 @@ async function draft(
   return interaction.output_text ?? "";
 }
 
+// Takes an already-resolved identity (see lib/resolve.ts), not a raw user
+// string — every search query, the draft call, the slug, and the final
+// website/developerPortalUrl check all key off resolved.canonical_name /
+// resolved.official_domain, never whatever the user originally typed.
 export async function generateGuide(
-  appInput: string,
+  resolved: ResolvedApp,
   onProgress: ProgressFn
 ): Promise<Guide> {
+  const appInput = resolved.canonical_name;
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const geminiCounter = { count: 0 };
   const tavilyCounter = { count: 0 };
@@ -477,9 +526,13 @@ export async function generateGuide(
         const parsed = JSON.parse(extractJson(raw));
         parsed.generatedBy = "agent";
         parsed.lastVerified = new Date().toISOString().slice(0, 10);
-        if (!parsed.slug) parsed.slug = slugify(appInput);
+        // Always derive the slug from the resolved canonical name, not
+        // whatever the model drafted — this is what keeps a typo'd input
+        // from minting a separate guide/URL from the real one.
+        parsed.slug = slugify(appInput);
         const result = GuideSchema.safeParse(parsed);
-        if (result.success) return ensureAgentCanDo(result.data);
+        if (result.success)
+          return enforceOfficialLinks(ensureAgentCanDo(result.data), resolved);
         lastError = result.error.message;
         return null;
       } catch (err) {

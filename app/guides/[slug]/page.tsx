@@ -27,15 +27,20 @@ function Card({ children }: { children: React.ReactNode }) {
 
 export default async function GuidePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { slug } = await params;
+  const { from } = await searchParams;
 
   const guide =
     (await getLibraryGuide(slug)) ?? (await getGuideStore().get(slug));
 
   if (!guide) notFound();
+
+  const wasCorrected = from && from.trim().toLowerCase() !== guide.appName.toLowerCase();
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
@@ -58,6 +63,11 @@ export default async function GuidePage({
                 {guide.difficulty}
               </span>
             </div>
+            {wasCorrected && (
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                Showing results for {guide.appName} (you typed &quot;{from}&quot;)
+              </p>
+            )}
             <p className="mt-2 max-w-xl text-zinc-600 dark:text-zinc-400">
               {guide.summary}
             </p>
@@ -69,12 +79,18 @@ export default async function GuidePage({
           <a href={guide.website} className="underline hover:text-black dark:hover:text-zinc-50">
             Website
           </a>
+          {guide.websiteVerified === false && (
+            <span className="text-zinc-400 dark:text-zinc-600">(unverified)</span>
+          )}
           <a
             href={guide.developerPortalUrl}
             className="underline hover:text-black dark:hover:text-zinc-50"
           >
             Developer portal
           </a>
+          {guide.developerPortalVerified === false && (
+            <span className="text-zinc-400 dark:text-zinc-600">(unverified)</span>
+          )}
         </div>
 
         <p className="mt-4 text-sm text-zinc-700 dark:text-zinc-300">{guide.difficultyReason}</p>

@@ -1,4 +1,5 @@
-import { generateGuide } from "@/lib/agent";
+import { generateGuide, slugify } from "@/lib/agent";
+import { needsConfirmation, resolveApp } from "@/lib/resolve";
 import { getLibraryGuides } from "@/lib/library";
 import { getGuideStore } from "@/lib/store";
 
@@ -9,7 +10,7 @@ function sse(event: string, data: unknown): string {
 }
 
 export async function POST(req: Request) {
-  let body: { input?: string };
+  let body: { input?: string; confirmed?: boolean; forceRaw?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -20,6 +21,8 @@ export async function POST(req: Request) {
   if (!input) {
     return new Response("Missing \"input\" (app name or website)", { status: 400 });
   }
+  const confirmed = body.confirmed === true;
+  const forceRaw = body.forceRaw === true;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -28,13 +31,54 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode(sse(event, data)));
 
       try {
-        const guide = await generateGuide(input, (message, service) => {
+        send("progress", { message: `Resolving "${input}"…`, service: "gemini" });
+        const resolved = await resolveApp(input, (message, service) =>
+          send("progress", { message, service })
+        );
+
+        // Low confidence and the client hasn't confirmed yet — ask before
+        // spending a full research+draft run on a guess that might be
+        // for the wrong product entirely.
+        if (needsConfirmation(resolved, confirmed)) {
+          send("confirm", {
+            canonicalName: resolved.canonical_name,
+            officialDomain: resolved.official_domain,
+            rawInput: input,
+          });
+          return;
+        }
+
+        // "Search anyway": use exactly what the user typed as the name
+        // (so the title isn't silently "corrected"), but keep whatever
+        // official_domain resolve found for the link-validation safety net.
+        const effective = forceRaw ? { ...resolved, canonical_name: input } : resolved;
+
+        if (!forceRaw && resolved.corrected_from) {
+          send("resolved", {
+            canonicalName: effective.canonical_name,
+            rawInput: resolved.corrected_from,
+          });
+        }
+
+        // If the resolved app already has a hand-checked library guide,
+        // serve that directly rather than regenerating — it's both
+        // cheaper and strictly more trustworthy than a fresh agent run.
+        const library = await getLibraryGuides();
+        const targetSlug = slugify(effective.canonical_name);
+        const libraryMatch = library.find(
+          (g) => g.slug === targetSlug || slugify(g.appName) === targetSlug
+        );
+        if (libraryMatch) {
+          send("done", { slug: libraryMatch.slug, guide: libraryMatch });
+          return;
+        }
+
+        const guide = await generateGuide(effective, (message, service) => {
           send("progress", { message, service });
         });
 
-        const library = await getLibraryGuides();
-        const taken = new Set(library.map((g) => g.slug));
-        if (taken.has(guide.slug)) {
+        const takenSlugs = new Set(library.map((g) => g.slug));
+        if (takenSlugs.has(guide.slug)) {
           guide.slug = `${guide.slug}-generated`;
         }
 
