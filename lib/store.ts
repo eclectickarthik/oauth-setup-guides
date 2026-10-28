@@ -124,6 +124,12 @@ export class BlobGuideStore implements GuideStore {
     const result = await get(this.pathname(slug), {
       access: "private",
       token: this.token,
+      // A guide needs to be readable immediately after generateGuide()
+      // writes it — the client navigates to /guides/<slug> the instant
+      // the "done" SSE event fires, which can land before Vercel Blob's
+      // CDN cache has picked up a just-written object, serving a stale
+      // "not found" and 404ing a guide that was generated seconds ago.
+      useCache: false,
     });
     if (!result || !result.stream) return null;
     return this.readStream(result.stream);
