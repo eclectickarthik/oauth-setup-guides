@@ -10,7 +10,12 @@ function sse(event: string, data: unknown): string {
 }
 
 export async function POST(req: Request) {
-  let body: { input?: string; confirmed?: boolean; forceRaw?: boolean };
+  let body: {
+    input?: string;
+    confirmed?: boolean;
+    forceRaw?: boolean;
+    forceRegenerate?: boolean;
+  };
   try {
     body = await req.json();
   } catch {
@@ -23,6 +28,7 @@ export async function POST(req: Request) {
   }
   const confirmed = body.confirmed === true;
   const forceRaw = body.forceRaw === true;
+  const forceRegenerate = body.forceRegenerate === true;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -71,6 +77,22 @@ export async function POST(req: Request) {
         if (libraryMatch) {
           send("done", { slug: libraryMatch.slug, guide: libraryMatch });
           return;
+        }
+
+        // A guide for this app may already have been generated. Spending a
+        // full research+draft run to silently overwrite it would waste
+        // Gemini/Tavily calls on no new information most of the time — ask
+        // first, same as the low-confidence resolve step does, unless the
+        // client has already said to regenerate.
+        if (!forceRegenerate) {
+          const store = getGuideStore();
+          const existing =
+            (await store.get(targetSlug)) ??
+            (await store.get(`${targetSlug}-generated`));
+          if (existing) {
+            send("exists", { slug: existing.slug, guide: existing });
+            return;
+          }
         }
 
         const guide = await generateGuide(effective, (message, service) => {

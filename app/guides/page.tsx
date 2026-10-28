@@ -2,6 +2,13 @@ import { getLibraryGuides } from "@/lib/library";
 import { getGuideStore } from "@/lib/store";
 import GuidesBrowser from "@/components/GuidesBrowser";
 
+// Without this, Next.js prerenders this page once at build time (it has no
+// per-request input), so a guide generated live after the last deploy never
+// shows up in Browse until the next build — even though the guide itself
+// renders fine at its own dynamic /guides/[slug] URL. Every request needs
+// the current contents of the guide store, not a build-time snapshot.
+export const dynamic = "force-dynamic";
+
 export default async function GuidesPage() {
   const library = await getLibraryGuides();
   const generated = await getGuideStore().list();

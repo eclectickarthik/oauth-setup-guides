@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 
 type ProgressEntry = { message: string; service?: "tavily" | "gemini" };
 type ConfirmPrompt = { canonicalName: string; officialDomain: string; rawInput: string };
+type ExistsPrompt = { slug: string; appName: string; generatedOn: string; rawInput: string };
 
 const SERVICE_LABEL: Record<string, string> = {
   tavily: "Tavily",
@@ -50,17 +51,19 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState("");
   const [confirmPrompt, setConfirmPrompt] = useState<ConfirmPrompt | null>(null);
+  const [existsPrompt, setExistsPrompt] = useState<ExistsPrompt | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   async function runGenerate(
     value: string,
-    opts: { confirmed?: boolean; forceRaw?: boolean } = {}
+    opts: { confirmed?: boolean; forceRaw?: boolean; forceRegenerate?: boolean } = {}
   ) {
     setStatus("running");
     setProgress([]);
     setExpanded(false);
     setError("");
     setConfirmPrompt(null);
+    setExistsPrompt(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -106,6 +109,15 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
               canonicalName: data.canonicalName,
               officialDomain: data.officialDomain,
               rawInput: data.rawInput,
+            });
+            return;
+          } else if (eventType === "exists") {
+            setStatus("idle");
+            setExistsPrompt({
+              slug: data.slug,
+              appName: data.guide.appName,
+              generatedOn: data.guide.lastVerified,
+              rawInput: value,
             });
             return;
           } else if (eventType === "done") {
@@ -179,6 +191,33 @@ export default function GenerateForm({ initialInput = "" }: { initialInput?: str
               className="rounded-md border border-amber-300 px-4 py-1.5 text-sm font-medium text-amber-900 dark:border-amber-700/60 dark:text-amber-200"
             >
               Search anyway
+            </button>
+          </div>
+        </div>
+      )}
+
+      {existsPrompt && (
+        <div className="mt-4 rounded-lg border border-zinc-300 bg-zinc-50 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <p className="text-zinc-700 dark:text-zinc-300">
+            A guide for <span className="font-medium">{existsPrompt.appName}</span> already
+            exists (generated {existsPrompt.generatedOn}).
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => router.push(`/guides/${existsPrompt.slug}`)}
+              className="rounded-md bg-black px-4 py-1.5 text-sm font-medium text-white dark:bg-zinc-50 dark:text-black"
+            >
+              View it
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                runGenerate(existsPrompt.rawInput, { confirmed: true, forceRegenerate: true })
+              }
+              className="rounded-md border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
+            >
+              Regenerate
             </button>
           </div>
         </div>
