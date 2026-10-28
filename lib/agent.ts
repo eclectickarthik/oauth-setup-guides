@@ -11,6 +11,41 @@ const MODEL = process.env.LLM_MODEL || "gemini-3.5-flash-lite";
 const SEARCH_QUERIES = 2;
 const EXTRACT_CAP = 4;
 
+// Search results are often dominated by review sites, social posts, and
+// third-party SDK wrappers rather than the provider's own docs. Rank
+// candidates before picking which ones to spend an extract call on.
+const JUNK_DOMAINS = [
+  "trustpilot.com",
+  "reddit.com",
+  "quora.com",
+  "youtube.com",
+  "twitter.com",
+  "x.com",
+  "facebook.com",
+  "linkedin.com",
+  "g2.com",
+  "capterra.com",
+  "producthunt.com",
+  "glassdoor.com",
+  "wikipedia.org",
+  "medium.com",
+];
+const DOC_HINTS = ["docs", "developer", "developers", "api"];
+
+function scoreResult(result: { url: string; score?: number }, appSlug: string): number {
+  let score = result.score ?? 0;
+  let host: string;
+  try {
+    host = new URL(result.url).hostname.toLowerCase();
+  } catch {
+    return -100;
+  }
+  if (JUNK_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) score -= 10;
+  if (DOC_HINTS.some((h) => host.includes(h))) score += 3;
+  if (appSlug && host.includes(appSlug)) score += 2;
+  return score;
+}
+
 const EVIDENCE_ENUM = ["tested", "docs", "uncertain"];
 
 const CLAIM_SCHEMA = {
@@ -167,21 +202,27 @@ async function research(
   onProgress(`Searching for "${appInput}" review and verification policy…`);
 
   tavilyCounter.count += queries.length;
-  const searchResults = await Promise.all(queries.map((q) => tavilySearch(q, 3)));
+  const searchResults = await Promise.all(queries.map((q) => tavilySearch(q, 5)));
 
+  const appSlug = slugify(appInput);
   const seen = new Set<string>();
-  const candidates = searchResults.flat().filter((r) => {
-    if (seen.has(r.url)) return false;
-    seen.add(r.url);
-    return true;
-  });
-  const topUrls = candidates.slice(0, EXTRACT_CAP).map((r) => r.url);
+  const candidates = searchResults
+    .flat()
+    .filter((r) => {
+      if (seen.has(r.url)) return false;
+      seen.add(r.url);
+      return true;
+    })
+    .sort((a, b) => scoreResult(b, appSlug) - scoreResult(a, appSlug));
+
+  const selected = candidates.slice(0, EXTRACT_CAP);
+  const topUrls = selected.map((r) => r.url);
 
   if (topUrls.length === 0) {
     return { notes: "No search results found.", sourceUrls: [] };
   }
 
-  for (const r of candidates.slice(0, EXTRACT_CAP)) {
+  for (const r of selected) {
     onProgress(`Found: ${r.title} (${r.url})`);
   }
 
