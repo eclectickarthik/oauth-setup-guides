@@ -1,7 +1,15 @@
 import { GoogleGenAI } from "@google/genai";
 import { Guide, GuideSchema } from "./schema";
+import { tavilyExtract, tavilySearch } from "./tavily";
 
-const MODEL = process.env.LLM_MODEL || "gemini-flash-lite-latest";
+const MODEL = process.env.LLM_MODEL || "gemini-3.5-flash-lite";
+
+// Research budget: Gemini's own Google Search grounding tool turned out to
+// have zero free quota on this project even though plain generation worked
+// fine, so research runs through Tavily (search + extract) instead, and
+// Gemini only sees the resulting plain text — no tools, no grounding.
+const SEARCH_QUERIES = 2;
+const EXTRACT_CAP = 4;
 
 const EVIDENCE_ENUM = ["tested", "docs", "uncertain"];
 
@@ -111,27 +119,19 @@ const GUIDE_JSON_SCHEMA = {
   ],
 };
 
-const RESEARCH_SYSTEM = `You research how a developer sets up an OAuth app with a provider (e.g. Google, Slack, GitHub) so an AI agent's users can connect that provider.
+const DRAFT_SYSTEM = `You convert extracted OAuth developer-docs pages into a single structured guide for a developer who wants to set up an OAuth app with this provider (e.g. Google, Slack, GitHub) so an AI agent's users can connect it.
 
-Use Google Search to find the provider's OFFICIAL developer documentation — prefer it over blogs, forums, or third-party articles. Look specifically for:
-- How to create the OAuth app / register a client
-- Redirect URI rules
-- Scopes
-- App review, verification, or marketplace-listing requirements
-- Rate limits
-- Any partner-program or paid-tier gate
-- Whether the provider offers more than one app type or setup path (e.g. a quick-but-broad option vs. a scoped-but-slower option)
+Look specifically for: how to create the OAuth app / register a client, redirect URI rules, scopes, app review/verification/marketplace-listing requirements, rate limits, any partner-program or paid-tier gate, and whether the provider offers more than one app type or setup path.
 
-Write a thorough research summary of everything you found, citing the specific source URL for each claim. Keep hands-on setup time and approval/review wait time as separate facts — don't merge them. Explicitly flag anything you could not confirm from official docs instead of guessing.`;
-
-const DRAFT_SYSTEM = `You convert OAuth setup research notes into a single structured guide for a developer. Rules:
-- Every claim needs a source URL, unless you are directly stating something from the research notes that has none — then mark it "uncertain" and add it to openQuestions instead of guessing. You never have evidence "tested" — only "docs" or "uncertain".
+Rules:
+- Only cite URLs from the "Available sources" list you're given — never invent or guess a URL. Every claim needs a source URL from that list, unless you are directly reasoning from the extracted content with nothing to point to — then mark it "uncertain" and add it to openQuestions instead of guessing. You never have evidence "tested" — only "docs" or "uncertain".
 - Keep hands-on setup time (time.setup) and approval/review wait time (time.approvalWait) separate — never merge them.
 - Tag every step "agent" (an AI coding agent could do this) or "human" (requires login, payment, legal action, or submitting for review).
-- Only include "decision" if the research notes describe more than one distinct setup path — omit it entirely otherwise.
+- Only include "decision" if the sources describe more than one distinct setup path — omit it entirely otherwise.
 - "difficulty" is one of easy/medium/hard/gated, reasoned from how much review/verification/paid-tier gating is involved.
 - "generatedBy" must be exactly "agent". "lastVerified" must be today's date in ISO format (YYYY-MM-DD).
-- "slug" must be lowercase-kebab-case derived from the app name.`;
+- "slug" must be lowercase-kebab-case derived from the app name.
+- If the extracted pages don't cover something (e.g. rate limits), say so in openQuestions rather than guessing.`;
 
 export type ProgressFn = (message: string) => void;
 
@@ -151,58 +151,77 @@ function extractJson(text: string): string {
   return (fenced ? fenced[1] : text).trim();
 }
 
-async function research(
-  ai: GoogleGenAI,
-  appInput: string,
-  onProgress: ProgressFn
-): Promise<string> {
-  onProgress(`Searching the web for "${appInput}" developer docs…`);
+type ResearchResult = { notes: string; sourceUrls: string[] };
 
-  const interaction = await ai.interactions.create({
-    model: MODEL,
-    input: `Research how to set up an OAuth app for: "${appInput}". This could be an app name or a website URL — find its official developer/API documentation.`,
-    system_instruction: RESEARCH_SYSTEM,
-    tools: [{ type: "google_search" }],
-  });
+async function research(
+  appInput: string,
+  onProgress: ProgressFn,
+  tavilyCounter: { count: number }
+): Promise<ResearchResult> {
+  const queries = [
+    `${appInput} OAuth app setup developer docs`,
+    `${appInput} app review verification`,
+  ].slice(0, SEARCH_QUERIES);
+
+  onProgress(`Searching for "${appInput}" OAuth setup docs…`);
+  onProgress(`Searching for "${appInput}" review and verification policy…`);
+
+  tavilyCounter.count += queries.length;
+  const searchResults = await Promise.all(queries.map((q) => tavilySearch(q, 3)));
 
   const seen = new Set<string>();
-  for (const step of interaction.steps ?? []) {
-    if (step.type !== "model_output") continue;
-    for (const block of step.content ?? []) {
-      if (block.type !== "text") continue;
-      for (const annotation of block.annotations ?? []) {
-        if (annotation.type !== "url_citation" || !annotation.url) continue;
-        const label = annotation.title
-          ? `${annotation.title} (${annotation.url})`
-          : annotation.url;
-        if (!seen.has(label)) {
-          seen.add(label);
-          onProgress(`Found: ${label}`);
-        }
-      }
-    }
+  const candidates = searchResults.flat().filter((r) => {
+    if (seen.has(r.url)) return false;
+    seen.add(r.url);
+    return true;
+  });
+  const topUrls = candidates.slice(0, EXTRACT_CAP).map((r) => r.url);
+
+  if (topUrls.length === 0) {
+    return { notes: "No search results found.", sourceUrls: [] };
   }
 
-  return interaction.output_text ?? "";
+  for (const r of candidates.slice(0, EXTRACT_CAP)) {
+    onProgress(`Found: ${r.title} (${r.url})`);
+  }
+
+  onProgress(`Reading ${topUrls.length} page(s)…`);
+  tavilyCounter.count += topUrls.length;
+  const extracted = await tavilyExtract(topUrls);
+
+  const notes = extracted
+    .map((r) => `Source: ${r.url}\n${r.raw_content.slice(0, 6000)}`)
+    .join("\n\n---\n\n");
+
+  return {
+    notes: notes || "Extraction failed for all pages.",
+    sourceUrls: extracted.map((r) => r.url),
+  };
 }
 
 async function draft(
   ai: GoogleGenAI,
   appInput: string,
   researchNotes: string,
+  sourceUrls: string[],
   onProgress: ProgressFn,
+  callCounter: { count: number },
   retryNote?: string
 ): Promise<string> {
   onProgress(
     retryNote
       ? "Output didn't match the required format — asking the model to fix it…"
-      : "Drafting the guide from research notes…"
+      : "Drafting the guide from extracted pages…"
   );
 
-  const input = retryNote
-    ? `App: "${appInput}"\n\nResearch notes:\n${researchNotes}\n\n${retryNote}`
-    : `App: "${appInput}"\n\nResearch notes:\n${researchNotes}\n\nProduce the guide now.`;
+  const sourcesList = sourceUrls.length
+    ? sourceUrls.map((u) => `- ${u}`).join("\n")
+    : "(none — extraction found no usable pages)";
 
+  const base = `App: "${appInput}"\n\nAvailable sources (only cite these):\n${sourcesList}\n\nExtracted page content:\n${researchNotes}`;
+  const input = retryNote ? `${base}\n\n${retryNote}` : `${base}\n\nProduce the guide now.`;
+
+  callCounter.count++;
   const interaction = await ai.interactions.create({
     model: MODEL,
     input,
@@ -222,39 +241,49 @@ export async function generateGuide(
   onProgress: ProgressFn
 ): Promise<Guide> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const geminiCounter = { count: 0 };
+  const tavilyCounter = { count: 0 };
 
-  const researchNotes = await research(ai, appInput, onProgress);
+  try {
+    const { notes, sourceUrls } = await research(appInput, onProgress, tavilyCounter);
 
-  let lastError = "";
-  const tryParse = (raw: string): Guide | null => {
-    try {
-      const parsed = JSON.parse(extractJson(raw));
-      parsed.generatedBy = "agent";
-      parsed.lastVerified = new Date().toISOString().slice(0, 10);
-      if (!parsed.slug) parsed.slug = slugify(appInput);
-      const result = GuideSchema.safeParse(parsed);
-      if (result.success) return result.data;
-      lastError = result.error.message;
-      return null;
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
-      return null;
-    }
-  };
+    let lastError = "";
+    const tryParse = (raw: string): Guide | null => {
+      try {
+        const parsed = JSON.parse(extractJson(raw));
+        parsed.generatedBy = "agent";
+        parsed.lastVerified = new Date().toISOString().slice(0, 10);
+        if (!parsed.slug) parsed.slug = slugify(appInput);
+        const result = GuideSchema.safeParse(parsed);
+        if (result.success) return result.data;
+        lastError = result.error.message;
+        return null;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+        return null;
+      }
+    };
 
-  const first = await draft(ai, appInput, researchNotes, onProgress);
-  const firstGuide = tryParse(first);
-  if (firstGuide) return firstGuide;
+    const first = await draft(ai, appInput, notes, sourceUrls, onProgress, geminiCounter);
+    const firstGuide = tryParse(first);
+    if (firstGuide) return firstGuide;
 
-  const second = await draft(
-    ai,
-    appInput,
-    researchNotes,
-    onProgress,
-    `Your previous output did not match the required schema. Error: ${lastError}\n\nProduce the corrected guide now.`
-  );
-  const secondGuide = tryParse(second);
-  if (secondGuide) return secondGuide;
+    const second = await draft(
+      ai,
+      appInput,
+      notes,
+      sourceUrls,
+      onProgress,
+      geminiCounter,
+      `Your previous output did not match the required schema. Error: ${lastError}\n\nProduce the corrected guide now.`
+    );
+    const secondGuide = tryParse(second);
+    if (secondGuide) return secondGuide;
 
-  throw new Error(`Agent failed to produce a valid guide: ${lastError}`);
+    throw new Error(`Agent failed to produce a valid guide: ${lastError}`);
+  } finally {
+    console.log(
+      `[agent] "${appInput}": ${tavilyCounter.count} Tavily call(s), ${geminiCounter.count} Gemini call(s) (model=${MODEL})`
+    );
+  }
 }

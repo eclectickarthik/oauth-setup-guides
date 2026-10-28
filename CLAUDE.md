@@ -25,7 +25,8 @@ Before launch, a developer often has to create an OAuth app with a provider and 
 ## Tech stack
 
 - Next.js (App Router) + TypeScript + Tailwind
-- LLM: Google Gemini API (`@google/genai`, Interactions API) — a research call with Google Search grounding, then a drafting call with `response_format` JSON-schema enforcement. Switched from Claude mid-build after burning through Anthropic credits on live-testing; model name from env var `LLM_MODEL`, so it can be swapped
+- LLM: Google Gemini API (`@google/genai`, Interactions API) for drafting, with `response_format` JSON-schema enforcement; model name from env var `LLM_MODEL`, so it can be swapped. Switched from Claude mid-build after burning through Anthropic credits on live-testing.
+- Research: Tavily (search + extract) instead of an LLM-native search tool — Gemini's own Google Search grounding turned out to have zero free quota on this project even though plain generation worked fine, and switching providers to debug that wasn't worth it. Tavily search finds candidate pages, Tavily extract pulls clean text from the top ones, and Gemini only ever sees plain extracted text (no tools) when drafting — capped at 2 searches + 4 extracts per guide.
 - Storage: library guides as JSON files in `/data/guides/`; generated guides in a simple key-value store (Upstash Redis or similar) behind a `GuideStore` interface, with a local JSON-file fallback for dev
 - Streaming: Server-Sent Events from the generation endpoint so the UI shows agent progress live
 - Deploy: Vercel
