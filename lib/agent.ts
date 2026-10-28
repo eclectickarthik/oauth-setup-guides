@@ -233,7 +233,8 @@ Other rules:
 - "generatedBy" must be exactly "agent". "lastVerified" must be today's date in ISO format (YYYY-MM-DD).
 - "slug" must be lowercase-kebab-case derived from the app name.`;
 
-export type ProgressFn = (message: string) => void;
+export type ProgressService = "tavily" | "gemini";
+export type ProgressFn = (message: string, service?: ProgressService) => void;
 
 export function slugify(input: string): string {
   return (
@@ -268,8 +269,8 @@ async function research(
     `${appInput} app review verification`,
   ].slice(0, SEARCH_QUERIES);
 
-  onProgress(`Searching for "${appInput}" OAuth setup docs…`);
-  onProgress(`Searching for "${appInput}" review and verification policy…`);
+  onProgress(`Searching for "${appInput}" OAuth setup docs…`, "tavily");
+  onProgress(`Searching for "${appInput}" review and verification policy…`, "tavily");
 
   tavilyCounter.count += queries.length;
   const searchResults = await Promise.all(queries.map((q) => tavilySearch(q, 5)));
@@ -291,10 +292,10 @@ async function research(
   }
 
   for (const r of selected) {
-    onProgress(`Found: ${r.title} (${r.url})`);
+    onProgress(`Found: ${r.title} (${r.url})`, "tavily");
   }
 
-  onProgress(`Reading ${selected.length} page(s)…`);
+  onProgress(`Reading ${selected.length} page(s)…`, "tavily");
   tavilyCounter.count += selected.length;
   const extracted = await tavilyExtract(selected.map((r) => r.url));
 
@@ -314,7 +315,7 @@ async function research(
       .join("\n");
     if (check.keywords.test(combinedSoFar)) continue;
 
-    onProgress(`No ${check.label} info found yet — searching specifically for it…`);
+    onProgress(`No ${check.label} info found yet — searching specifically for it…`, "tavily");
     tavilyCounter.count += 1;
     const fallbackResults = await tavilySearch(`${appInput} ${check.query}`, 5);
     const fallbackCandidates = fallbackResults
@@ -325,7 +326,7 @@ async function research(
     if (fallbackCandidates.length > 0) {
       fallbackCandidates.forEach((r) => seen.add(r.url));
       for (const r of fallbackCandidates) {
-        onProgress(`Found: ${r.title} (${r.url})`);
+        onProgress(`Found: ${r.title} (${r.url})`, "tavily");
       }
       tavilyCounter.count += fallbackCandidates.length;
       const moreExtracted = await tavilyExtract(fallbackCandidates.map((r) => r.url));
@@ -355,7 +356,8 @@ async function draft(
   onProgress(
     retryNote
       ? "Output didn't match the required format — asking the model to fix it…"
-      : "Drafting the guide from extracted pages…"
+      : "Drafting the guide from extracted pages…",
+    "gemini"
   );
 
   const sourcesList = sourceUrls.length

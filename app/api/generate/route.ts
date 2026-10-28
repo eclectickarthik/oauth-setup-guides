@@ -28,8 +28,8 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode(sse(event, data)));
 
       try {
-        const guide = await generateGuide(input, (message) => {
-          send("progress", { message });
+        const guide = await generateGuide(input, (message, service) => {
+          send("progress", { message, service });
         });
 
         const library = await getLibraryGuides();

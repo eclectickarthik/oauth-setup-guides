@@ -3,11 +3,33 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
+type ProgressEntry = { message: string; service?: "tavily" | "gemini" };
+
+const SERVICE_LABEL: Record<string, string> = {
+  tavily: "Tavily",
+  gemini: "Gemini",
+};
+
+const SERVICE_STYLES: Record<string, string> = {
+  tavily: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  gemini: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+};
+
+function ServiceBadge({ service }: { service?: "tavily" | "gemini" }) {
+  if (!service) return null;
+  return (
+    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${SERVICE_STYLES[service]}`}>
+      {SERVICE_LABEL[service]}
+    </span>
+  );
+}
+
 export default function GenerateForm() {
   const router = useRouter();
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "running" | "error">("idle");
-  const [progress, setProgress] = useState<string[]>([]);
+  const [progress, setProgress] = useState<ProgressEntry[]>([]);
+  const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
@@ -18,6 +40,7 @@ export default function GenerateForm() {
 
     setStatus("running");
     setProgress([]);
+    setExpanded(false);
     setError("");
 
     const controller = new AbortController();
@@ -54,7 +77,7 @@ export default function GenerateForm() {
           const data = JSON.parse(dataLine.slice("data:".length).trim());
 
           if (eventType === "progress") {
-            setProgress((prev) => [...prev, data.message]);
+            setProgress((prev) => [...prev, { message: data.message, service: data.service }]);
           } else if (eventType === "done") {
             router.push(`/guides/${data.slug}`);
             return;
@@ -74,35 +97,53 @@ export default function GenerateForm() {
     }
   }
 
+  const current = progress[progress.length - 1];
+
   return (
-    <div className="mt-10 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-      <h2 className="text-sm font-medium text-black dark:text-zinc-50">
-        Don&apos;t see your app? Generate a new guide
-      </h2>
-      <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
+    <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+      <form onSubmit={handleSubmit} className="flex gap-2">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="App name or website (e.g. Notion, notion.so)"
           disabled={status === "running"}
-          className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+          className="flex-1 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm text-black outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
         />
         <button
           type="submit"
           disabled={status === "running" || !input.trim()}
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-50 dark:text-black"
+          className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-50 dark:text-black"
         >
           {status === "running" ? "Generating…" : "Generate"}
         </button>
       </form>
 
-      {progress.length > 0 && (
-        <ul className="mt-4 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-          {progress.map((message, i) => (
-            <li key={i}>{message}</li>
-          ))}
-        </ul>
+      {current && (
+        <div className="mt-4 text-sm">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex w-full items-center gap-2 text-left text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+          >
+            <ServiceBadge service={current.service} />
+            <span className="flex-1 truncate">{current.message}</span>
+            <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-600">
+              {expanded ? "Hide details ▴" : "Show details ▾"}
+            </span>
+          </button>
+
+          {expanded && (
+            <ul className="mt-2 space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+              {progress.map((entry, i) => (
+                <li key={i} className="flex items-start gap-2 text-zinc-500 dark:text-zinc-500">
+                  <ServiceBadge service={entry.service} />
+                  <span>{entry.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       {status === "error" && (
