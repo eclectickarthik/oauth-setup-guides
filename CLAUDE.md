@@ -25,7 +25,7 @@ Before launch, a developer often has to create an OAuth app with a provider and 
 ## Tech stack
 
 - Next.js (App Router) + TypeScript + Tailwind
-- LLM: Claude API with web search + web fetch tools (model name from env var `LLM_MODEL`, so it can be swapped)
+- LLM: Google Gemini API (`@google/genai`, Interactions API) — a research call with Google Search grounding, then a drafting call with `response_format` JSON-schema enforcement. Switched from Claude mid-build after burning through Anthropic credits on live-testing; model name from env var `LLM_MODEL`, so it can be swapped
 - Storage: library guides as JSON files in `/data/guides/`; generated guides in a simple key-value store (Upstash Redis or similar) behind a `GuideStore` interface, with a local JSON-file fallback for dev
 - Streaming: Server-Sent Events from the generation endpoint so the UI shows agent progress live
 - Deploy: Vercel

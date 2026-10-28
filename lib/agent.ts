@@ -1,143 +1,139 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { Guide, GuideSchema } from "./schema";
 
-const MODEL = process.env.LLM_MODEL || "claude-opus-4-8";
+const MODEL = process.env.LLM_MODEL || "gemini-flash-lite-latest";
 
-// Keeps generation to roughly 1-2 minutes: each tool gets half of the ~12-call budget.
-const SEARCH_BUDGET = 6;
-const FETCH_BUDGET = 6;
+const EVIDENCE_ENUM = ["tested", "docs", "uncertain"];
 
-// Caps how much of a single fetched page enters the conversation — without this,
-// one large docs page gets resent in full on every subsequent turn and dominates cost.
-const FETCH_MAX_CONTENT_TOKENS = 4000;
+const CLAIM_SCHEMA = {
+  type: "object",
+  properties: {
+    text: { type: "string" },
+    evidence: { type: "string", enum: EVIDENCE_ENUM },
+    sources: { type: "array", items: { type: "string" } },
+  },
+  required: ["text", "evidence", "sources"],
+};
 
-const GUIDE_SHAPE = `{
-  slug: string;                        // lowercase-kebab-case
-  appName: string;
-  website: string;                     // URL
-  developerPortalUrl: string;          // URL
-  summary: string;                      // 2-3 plain-language sentences
-  decision?: {                         // only if the provider offers more than one setup path
-    question: string;
-    options: { name: string; pickWhen: string[]; tradeoff: string }[];
-    recommendation: string;
-  };
-  difficulty: "easy" | "medium" | "hard" | "gated";
-  difficultyReason: string;
-  time: { setup: string; approvalWait: string; notes?: string };
-  whenReviewIsNeeded: Claim[];
-  requirements: Claim[];
-  steps: Step[];                        // at least one
-  blockers: { problem: string; fix: string; evidence: Evidence; sources: string[] }[];
-  agentCanDo: string[];
-  humanMustDo: string[];
-  openQuestions: string[];
-  generatedBy: "agent";
-  lastVerified: string;                 // ISO date, today
-}
-// Evidence = "tested" | "docs" | "uncertain"
-// Claim = { text: string; evidence: Evidence; sources: string[] }   // sources required unless evidence is "tested"
-// Step = { title: string; detail: string; actor: "agent" | "human"; evidence: Evidence; sources: string[] }`;
+const STEP_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    detail: { type: "string" },
+    actor: { type: "string", enum: ["agent", "human"] },
+    evidence: { type: "string", enum: EVIDENCE_ENUM },
+    sources: { type: "array", items: { type: "string" } },
+  },
+  required: ["title", "detail", "actor", "evidence", "sources"],
+};
 
-const SYSTEM_PROMPT = `You research how a developer sets up an OAuth app with a provider (e.g. Google, Slack, GitHub) so an AI agent's users can connect that provider, and you produce a single structured guide as JSON.
+const BLOCKER_SCHEMA = {
+  type: "object",
+  properties: {
+    problem: { type: "string" },
+    fix: { type: "string" },
+    evidence: { type: "string", enum: EVIDENCE_ENUM },
+    sources: { type: "array", items: { type: "string" } },
+  },
+  required: ["problem", "fix", "evidence", "sources"],
+};
 
-Rules:
-- Start from the provider's official developer docs. Prefer official docs over blogs, forums, or third-party articles.
-- Look specifically for: how to create the OAuth app, redirect URI rules, scopes, app review / verification / marketplace listing, rate limits, and any partner-program or paid-tier gate.
-- Every claim needs a source URL, unless you are stating something you directly verified yourself (you are not — you only have docs, so only use evidence "docs" or "uncertain", never "tested").
-- If something can't be found in the docs, mark it "uncertain" and add it to openQuestions instead of guessing. Never guess times or requirements.
-- Keep hands-on setup time and approval/review wait time separate — never merge them.
+// JSON Schema enforced on the drafting call via response_format. Mirrors
+// lib/schema.ts's GuideSchema — kept hand-written since the Gemini schema
+// dialect only supports a subset of JSON Schema (no minLength, etc).
+const GUIDE_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    slug: { type: "string" },
+    appName: { type: "string" },
+    website: { type: "string" },
+    developerPortalUrl: { type: "string" },
+    summary: { type: "string" },
+    decision: {
+      type: "object",
+      properties: {
+        question: { type: "string" },
+        options: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              pickWhen: { type: "array", items: { type: "string" } },
+              tradeoff: { type: "string" },
+            },
+            required: ["name", "pickWhen", "tradeoff"],
+          },
+        },
+        recommendation: { type: "string" },
+      },
+      required: ["question", "options", "recommendation"],
+    },
+    difficulty: { type: "string", enum: ["easy", "medium", "hard", "gated"] },
+    difficultyReason: { type: "string" },
+    time: {
+      type: "object",
+      properties: {
+        setup: { type: "string" },
+        approvalWait: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["setup", "approvalWait"],
+    },
+    whenReviewIsNeeded: { type: "array", items: CLAIM_SCHEMA },
+    requirements: { type: "array", items: CLAIM_SCHEMA },
+    steps: { type: "array", items: STEP_SCHEMA },
+    blockers: { type: "array", items: BLOCKER_SCHEMA },
+    agentCanDo: { type: "array", items: { type: "string" } },
+    humanMustDo: { type: "array", items: { type: "string" } },
+    openQuestions: { type: "array", items: { type: "string" } },
+    generatedBy: { type: "string", enum: ["agent"] },
+    lastVerified: { type: "string" },
+  },
+  required: [
+    "slug",
+    "appName",
+    "website",
+    "developerPortalUrl",
+    "summary",
+    "difficulty",
+    "difficultyReason",
+    "time",
+    "whenReviewIsNeeded",
+    "requirements",
+    "steps",
+    "blockers",
+    "agentCanDo",
+    "humanMustDo",
+    "openQuestions",
+    "generatedBy",
+    "lastVerified",
+  ],
+};
+
+const RESEARCH_SYSTEM = `You research how a developer sets up an OAuth app with a provider (e.g. Google, Slack, GitHub) so an AI agent's users can connect that provider.
+
+Use Google Search to find the provider's OFFICIAL developer documentation — prefer it over blogs, forums, or third-party articles. Look specifically for:
+- How to create the OAuth app / register a client
+- Redirect URI rules
+- Scopes
+- App review, verification, or marketplace-listing requirements
+- Rate limits
+- Any partner-program or paid-tier gate
+- Whether the provider offers more than one app type or setup path (e.g. a quick-but-broad option vs. a scoped-but-slower option)
+
+Write a thorough research summary of everything you found, citing the specific source URL for each claim. Keep hands-on setup time and approval/review wait time as separate facts — don't merge them. Explicitly flag anything you could not confirm from official docs instead of guessing.`;
+
+const DRAFT_SYSTEM = `You convert OAuth setup research notes into a single structured guide for a developer. Rules:
+- Every claim needs a source URL, unless you are directly stating something from the research notes that has none — then mark it "uncertain" and add it to openQuestions instead of guessing. You never have evidence "tested" — only "docs" or "uncertain".
+- Keep hands-on setup time (time.setup) and approval/review wait time (time.approvalWait) separate — never merge them.
 - Tag every step "agent" (an AI coding agent could do this) or "human" (requires login, payment, legal action, or submitting for review).
-- If the provider offers more than one app type or setup path (e.g. a quick-but-broad option vs. a scoped-but-slower option), fill the "decision" field so the developer picks the right path before step 1. Omit it if there is only one path.
-- You have a limited budget of web searches and fetches. Use them efficiently: search for the official developer docs first, then fetch the specific pages you need (app registration, review policy, scopes/rate limits).
-- When you are done researching, respond with ONLY a single JSON object matching this shape, and nothing else — no markdown fences, no prose before or after it:
-
-${GUIDE_SHAPE}`;
+- Only include "decision" if the research notes describe more than one distinct setup path — omit it entirely otherwise.
+- "difficulty" is one of easy/medium/hard/gated, reasoned from how much review/verification/paid-tier gating is involved.
+- "generatedBy" must be exactly "agent". "lastVerified" must be today's date in ISO format (YYYY-MM-DD).
+- "slug" must be lowercase-kebab-case derived from the app name.`;
 
 export type ProgressFn = (message: string) => void;
-
-function buildUserPrompt(appInput: string): string {
-  return `Research how to set up an OAuth app for: "${appInput}". This could be an app name or a website URL. Find its official developer/API documentation and produce the guide JSON described in your instructions.`;
-}
-
-async function runAgentOnce(
-  client: Anthropic,
-  messages: Anthropic.MessageParam[],
-  onProgress: ProgressFn
-): Promise<{ text: string; finalMessage: Anthropic.Message }> {
-  const stream = client.messages.stream({
-    model: MODEL,
-    max_tokens: 4000,
-    system: SYSTEM_PROMPT,
-    tools: [
-      { type: "web_search_20260209", name: "web_search", max_uses: SEARCH_BUDGET },
-      {
-        type: "web_fetch_20260209",
-        name: "web_fetch",
-        max_uses: FETCH_BUDGET,
-        max_content_tokens: FETCH_MAX_CONTENT_TOKENS,
-      },
-    ],
-    messages,
-  });
-
-  const pendingToolInput = new Map<number, { name: string; json: string }>();
-
-  for await (const event of stream) {
-    if (event.type === "content_block_start") {
-      const block = event.content_block;
-      if (block.type === "server_tool_use") {
-        pendingToolInput.set(event.index, { name: block.name, json: "" });
-      }
-    } else if (event.type === "content_block_delta") {
-      if (event.delta.type === "input_json_delta") {
-        const entry = pendingToolInput.get(event.index);
-        if (entry) entry.json += event.delta.partial_json;
-      }
-    } else if (event.type === "content_block_stop") {
-      const entry = pendingToolInput.get(event.index);
-      if (entry) {
-        try {
-          const input = JSON.parse(entry.json || "{}");
-          if (entry.name === "web_search" && input.query) {
-            onProgress(`Searching for "${input.query}"…`);
-          } else if (entry.name === "web_fetch" && input.url) {
-            onProgress(`Reading ${input.url}…`);
-          }
-        } catch {
-          // partial/invalid JSON — skip the progress message
-        }
-        pendingToolInput.delete(event.index);
-      }
-    }
-  }
-
-  const finalMessage = await stream.finalMessage();
-  const textBlock = finalMessage.content.find(
-    (b): b is Anthropic.TextBlock => b.type === "text"
-  );
-  return { text: textBlock?.text ?? "", finalMessage };
-}
-
-async function runToCompletion(
-  client: Anthropic,
-  messages: Anthropic.MessageParam[],
-  onProgress: ProgressFn
-): Promise<string> {
-  while (true) {
-    const { text, finalMessage } = await runAgentOnce(client, messages, onProgress);
-    if (finalMessage.stop_reason === "pause_turn") {
-      messages.push({ role: "assistant", content: finalMessage.content });
-      continue;
-    }
-    return text;
-  }
-}
-
-function extractJson(text: string): string {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  return (fenced ? fenced[1] : text).trim();
-}
 
 function slugify(input: string): string {
   return (
@@ -150,17 +146,84 @@ function slugify(input: string): string {
   );
 }
 
+function extractJson(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  return (fenced ? fenced[1] : text).trim();
+}
+
+async function research(
+  ai: GoogleGenAI,
+  appInput: string,
+  onProgress: ProgressFn
+): Promise<string> {
+  onProgress(`Searching the web for "${appInput}" developer docs…`);
+
+  const interaction = await ai.interactions.create({
+    model: MODEL,
+    input: `Research how to set up an OAuth app for: "${appInput}". This could be an app name or a website URL — find its official developer/API documentation.`,
+    system_instruction: RESEARCH_SYSTEM,
+    tools: [{ type: "google_search" }],
+  });
+
+  const seen = new Set<string>();
+  for (const step of interaction.steps ?? []) {
+    if (step.type !== "model_output") continue;
+    for (const block of step.content ?? []) {
+      if (block.type !== "text") continue;
+      for (const annotation of block.annotations ?? []) {
+        if (annotation.type !== "url_citation" || !annotation.url) continue;
+        const label = annotation.title
+          ? `${annotation.title} (${annotation.url})`
+          : annotation.url;
+        if (!seen.has(label)) {
+          seen.add(label);
+          onProgress(`Found: ${label}`);
+        }
+      }
+    }
+  }
+
+  return interaction.output_text ?? "";
+}
+
+async function draft(
+  ai: GoogleGenAI,
+  appInput: string,
+  researchNotes: string,
+  onProgress: ProgressFn,
+  retryNote?: string
+): Promise<string> {
+  onProgress(
+    retryNote
+      ? "Output didn't match the required format — asking the model to fix it…"
+      : "Drafting the guide from research notes…"
+  );
+
+  const input = retryNote
+    ? `App: "${appInput}"\n\nResearch notes:\n${researchNotes}\n\n${retryNote}`
+    : `App: "${appInput}"\n\nResearch notes:\n${researchNotes}\n\nProduce the guide now.`;
+
+  const interaction = await ai.interactions.create({
+    model: MODEL,
+    input,
+    system_instruction: DRAFT_SYSTEM,
+    response_format: {
+      type: "text",
+      mime_type: "application/json",
+      schema: GUIDE_JSON_SCHEMA,
+    },
+  });
+
+  return interaction.output_text ?? "";
+}
+
 export async function generateGuide(
   appInput: string,
   onProgress: ProgressFn
 ): Promise<Guide> {
-  const client = new Anthropic();
-  const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: buildUserPrompt(appInput) },
-  ];
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  onProgress(`Researching developer docs for "${appInput}"…`);
-  let text = await runToCompletion(client, messages, onProgress);
+  const researchNotes = await research(ai, appInput, onProgress);
 
   let lastError = "";
   const tryParse = (raw: string): Guide | null => {
@@ -179,19 +242,19 @@ export async function generateGuide(
     }
   };
 
-  const first = tryParse(text);
-  if (first) return first;
+  const first = await draft(ai, appInput, researchNotes, onProgress);
+  const firstGuide = tryParse(first);
+  if (firstGuide) return firstGuide;
 
-  onProgress("Output didn't match the required format — asking the agent to fix it…");
-  messages.push({ role: "assistant", content: text });
-  messages.push({
-    role: "user",
-    content: `Your output did not match the required schema. Error: ${lastError}\n\nRespond with ONLY the corrected JSON object — no markdown fences, no prose.`,
-  });
-  text = await runToCompletion(client, messages, onProgress);
-
-  const second = tryParse(text);
-  if (second) return second;
+  const second = await draft(
+    ai,
+    appInput,
+    researchNotes,
+    onProgress,
+    `Your previous output did not match the required schema. Error: ${lastError}\n\nProduce the corrected guide now.`
+  );
+  const secondGuide = tryParse(second);
+  if (secondGuide) return secondGuide;
 
   throw new Error(`Agent failed to produce a valid guide: ${lastError}`);
 }
