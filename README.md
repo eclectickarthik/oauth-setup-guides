@@ -281,6 +281,36 @@ domain outranks an unrelated blog for its own guide, while still being
 deprioritized when it's irrelevant to a *different* app's guide (e.g. a
 Reddit thread when researching Notion).
 
+**Even with the above, Reddit specifically still drafted the Ads API,
+not the main Data API — and this part isn't fully solved.** Debugging
+with `npm run generate -- Reddit` again after the fix above traced it to
+two compounding, Reddit-specific facts that no generic heuristic can
+know without being told: (1) `reddit.com/dev/api/oauth` — the page that
+ranks best once restricted to the official domain — is a thin API
+*conventions* reference (pagination, modhashes, fullnames), not an OAuth
+setup walkthrough; the actual community-maintained walkthrough has lived
+for years at `github.com/reddit-archive/reddit/wiki/oauth2`, off Reddit's
+own domain entirely. (2) The Ads API's docs are simply more thorough and
+keyword-dense for "OAuth"/"authorization" than anything else on
+reddit.com, so once two more generic improvements were added — ranking
+candidates only by domain-search provenance (not just by sharing a
+hostname, since an unrestricted "review verification" search on Reddit
+also surfaces unrelated reddit.com forum threads) and a generic ads-
+subdomain deprioritization (reused `isAdsSubdomain` penalty, since
+Facebook/LinkedIn/X/Pinterest have the same "separate, better-documented
+Ads API" shape) — the Ads docs still had the best content once extracted,
+and Gemini drafted from the richer material available.
+
+Left as a documented limitation rather than special-cased, in keeping
+with how the Apple Ads case above was handled: hardcoding a trust
+exception for one GitHub wiki page for one provider isn't a generalizable
+fix, it's a lookup table pretending to be one. The generalizable pieces
+of this round's fix (own-domain forum noise, ads-subdomain
+deprioritization, domain-restricted search) are real and verified; "a
+company's real canonical docs live on a different domain than the
+company's own" is a genuinely hard case for a resolve step whose job is
+to find the official *domain*.
+
 ## Limitations
 
 - **The agent pipeline is noticeably weaker than hand-tested guides**,

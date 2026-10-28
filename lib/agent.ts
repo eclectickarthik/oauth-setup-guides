@@ -80,12 +80,29 @@ const USER_DELEGATED_KEYWORDS =
 const CLIENT_CREDENTIALS_KEYWORDS =
   /\bclient[_ ]credentials\b|\bserver[- ]to[- ]server\b|\byour own (ad )?account\b|\bapp-level token\b|\bapp-only\b/i;
 
+// Several providers (Reddit, Facebook, LinkedIn, X, Pinterest) run a
+// separate Ads/Marketing API alongside their main consumer API, on its
+// own subdomain. That Ads API is almost never what an agent builder means
+// by "<app> OAuth" — but its docs tend to be more keyword-dense for
+// "OAuth"/"authorization" than the main API's, so they otherwise outrank
+// it in search. Deprioritize unless the resolved app itself is the ads
+// product (appSlug already contains "ads", e.g. "Reddit Ads").
+const ADS_SUBDOMAIN = /(^|\.)ads[.-]/i;
+
 // Exported for testing — see the "reddit.com itself outranked by blogs"
 // regression test in lib/agent.test.ts.
 export function scoreResult(
   result: { url: string; score?: number },
   appSlug: string,
-  officialDomains: string[]
+  officialDomains: string[],
+  // URLs that came from a search specifically restricted to the official
+  // domain (Tavily's include_domains), as opposed to merely happening to
+  // be on that domain within an unrestricted web search. This distinction
+  // matters because an unrestricted "<app> review verification" search
+  // against a provider like Reddit also turns up unrelated reddit.com
+  // threads about OTHER apps' reviews — those shouldn't get full official
+  // -domain priority just for sharing a hostname with the real docs.
+  domainSearchUrls: Set<string> = new Set()
 ): number {
   let score = result.score ?? 0;
   let host: string;
@@ -106,11 +123,23 @@ export function scoreResult(
   // penalty at all, so blogs about Reddit's API outranked Reddit's own
   // pages. isOfficialUrl is the same registrable-domain check used to
   // validate the final website/developerPortalUrl links.
-  if (officialDomains.some((d) => isOfficialUrl(result.url, d))) return score + 20;
+  const isAdsSubdomain = ADS_SUBDOMAIN.test(host) && !appSlug.includes("ads");
+  const isOfficial = officialDomains.some((d) => isOfficialUrl(result.url, d));
+
+  if (isOfficial && domainSearchUrls.has(result.url)) {
+    return score + 20 - (isAdsSubdomain ? 8 : 0);
+  }
+  if (isOfficial) {
+    // On-domain but only found incidentally by an unrestricted search —
+    // still never treat as junk, but don't let it auto-outrank real docs
+    // that an unrestricted search also happened to find.
+    return score + 3 - (isAdsSubdomain ? 8 : 0);
+  }
 
   if (JUNK_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) score -= 10;
   if (DOC_HINTS.some((h) => host.includes(h))) score += 3;
   if (appSlug && host.includes(appSlug)) score += 2;
+  if (isAdsSubdomain) score -= 5;
   return score;
 }
 
@@ -393,17 +422,21 @@ async function research(
   const bareOfficialDomains = officialDomains
     .map((d) => registrableDomain(d))
     .filter((d): d is string => Boolean(d));
-  if (bareOfficialDomains.length > 0) {
+  const hasDomainSearch = bareOfficialDomains.length > 0;
+  if (hasDomainSearch) {
     onProgress(`Searching ${bareOfficialDomains.join(", ")} directly for OAuth docs…`, "tavily");
     tavilyCounter.count += 1;
     searchPromises.push(
-      // Same end-user-facing bias as the primary query above — a bare
-      // "OAuth API documentation" search on the official domain tended to
-      // surface a provider's ads/server-to-server API docs (ads-api.*
-      // subdomains optimize hard for "OAuth"/"authorization" keywords)
-      // over the actual consumer-facing API most agent builders want.
+      // Reusing the primary query's "sign in"/"user login" phrasing here
+      // still ranked a separate Ads API's quickstart guide above the
+      // provider's actual API reference docs — ads-api.* subdomains are
+      // just more keyword-dense for "OAuth"/"authorization" than a
+      // provider's main docs. "documentation reference ... create app"
+      // biases toward reference-doc phrasing instead of tutorial-ish
+      // phrasing, which empirically (tested against Reddit) ranks the
+      // real docs page (reddit.com/dev/api/oauth) above the Ads API.
       tavilySearch(
-        `${appInput} sign in OAuth user login authorization code developer documentation`,
+        `${appInput} API documentation reference OAuth authorization scopes create app`,
         5,
         bareOfficialDomains
       )
@@ -411,6 +444,13 @@ async function research(
   }
 
   const searchResults = await Promise.all(searchPromises);
+  // The domain-restricted search (if any) is always the last promise
+  // pushed above — record its URLs so scoreResult can tell "found by the
+  // targeted domain search" apart from "merely happens to share a
+  // hostname with something an unrestricted search turned up."
+  const domainSearchUrls = new Set(
+    hasDomainSearch ? searchResults[searchResults.length - 1].map((r) => r.url) : []
+  );
 
   const appSlug = slugify(appInput);
   const seen = new Set<string>();
@@ -421,7 +461,11 @@ async function research(
       seen.add(r.url);
       return true;
     })
-    .sort((a, b) => scoreResult(b, appSlug, officialDomains) - scoreResult(a, appSlug, officialDomains));
+    .sort(
+      (a, b) =>
+        scoreResult(b, appSlug, officialDomains, domainSearchUrls) -
+        scoreResult(a, appSlug, officialDomains, domainSearchUrls)
+    );
 
   const selected = candidates.slice(0, INITIAL_EXTRACT_CAP);
   if (selected.length === 0) {
@@ -457,7 +501,7 @@ async function research(
     const fallbackResults = await tavilySearch(`${appInput} ${check.query}`, 5);
     const fallbackCandidates = fallbackResults
       .filter((r) => !seen.has(r.url))
-      .sort((a, b) => scoreResult(b, appSlug, officialDomains) - scoreResult(a, appSlug, officialDomains))
+      .sort((a, b) => scoreResult(b, appSlug, officialDomains, domainSearchUrls) - scoreResult(a, appSlug, officialDomains, domainSearchUrls))
       .slice(0, FALLBACK_EXTRACT_CAP);
 
     if (fallbackCandidates.length > 0) {
@@ -493,7 +537,7 @@ async function research(
     );
     const signInCandidates = signInResults
       .filter((r) => !seen.has(r.url))
-      .sort((a, b) => scoreResult(b, appSlug, officialDomains) - scoreResult(a, appSlug, officialDomains))
+      .sort((a, b) => scoreResult(b, appSlug, officialDomains, domainSearchUrls) - scoreResult(a, appSlug, officialDomains, domainSearchUrls))
       .slice(0, FALLBACK_EXTRACT_CAP);
 
     if (signInCandidates.length > 0) {
