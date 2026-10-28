@@ -12,8 +12,9 @@ Two features:
 
 1. **Library** — guides for GitHub (easy), Slack (medium), Google (hard),
    LinkedIn (gated) — spanning the full difficulty range on purpose.
-   GitHub and Google are hand-checked (`evidence: "tested"` on the claims
-   that were actually verified against the real provider UI); Slack and
+   GitHub and Google are hand-checked (`evidence.level: "hand_checked"` on
+   the claims that were actually verified against the real provider UI);
+   Slack and
    LinkedIn are docs-researched, not hands-on tested — see
    `docs/validation.md` and each guide page's footer label.
 2. **Live generation** — type any app name or website, and an agent
@@ -207,8 +208,9 @@ The fix is systemic, not a one-off edit to the X guide:
 3. Tightened the prompt: `openQuestions` is explicitly for things
    genuinely unverifiable, not a place to park a resolvable pricing
    question because it's easier than stating a number; billing/payment
-   setup is always tagged a human step whenever `accessCost.tier` isn't
-   free, since an agent can't enter payment details.
+   setup is always tagged a human step whenever cost isn't free (field
+   later renamed from `accessCost.tier` to `cost` — see the schema
+   redesign entry below), since an agent can't enter payment details.
 4. Evidence badges now link to the actual source URL for "docs" claims
    (or say "unverified" if a claim somehow has none) — a UI-level forcing
    function so a claim can't look as credible as a real citation without
@@ -375,6 +377,57 @@ description and use-case details for directory review" — no OAuth-code
 tasks anywhere, and the step list ends at "Submit to the Linear
 integration directory," not an implementation step.
 
+**Schema redesign: structured evidence, a verifier pass, and an explicit
+OAuth-fit classification.** The `agentCanDo` fix above addressed one
+specific overclaim; a broader pass rebuilt the schema and pipeline around
+the same underlying principle — don't assert more than was actually
+checked, and be explicit about what's different between providers rather
+than flattening it into free text:
+
+1. **Structured evidence** (`lib/schema.ts`'s `Evidence`) replaced the
+   flat `tested`/`docs`/`uncertain` enum with a 4-level scale
+   (`hand_checked`/`doc_sourced`/`inferred`/`uncertain`) plus a
+   `sourceUrl`/`note` on every claim, not just a shared `sources[]`
+   array. The generator is explicitly told it can never use
+   `hand_checked` (it was never hands-on with any provider's UI) — only a
+   human-authored library guide can claim that.
+2. **A verifier pass** (`lib/verifier.ts`) now runs after every
+   generation: it re-fetches every URL the draft actually cited (one
+   batched Tavily extract call) and asks the model to confirm each claim
+   against the fresh page text, correcting or downgrading evidence that
+   doesn't hold up, flagging any `agentCanDo`/`humanMustDo` entry that
+   violates the Composio-scoping rule, and listing what it still
+   couldn't verify. One extra Tavily call and one extra Gemini call per
+   generation — a deliberate cost increase, not a free addition, logged
+   the same way `generateGuide`'s own call counts already are.
+   Live-tested on Apple: the verifier caught and fixed real problems in
+   the draft — it restricted several steps the draft had marked
+   agent-doable (interacting with Apple's consent/portal UI) down to
+   human-only, and stripped a duplicated "hand off to Composio" sentence
+   the draft had put in both a step description and the dedicated
+   `composioHandoff` field. It was also sometimes *overly* conservative
+   — on one Google regeneration it stripped "pre-fill form fields" from
+   `agentCanDo` entirely, even though pre-filling is explicitly an
+   allowed category in the prompt; this isn't claimed as fully solved,
+   just caught and left as a known rough edge rather than hidden.
+3. **`oauthFit`** (`standard_oauth`/`oauth_with_caveats`/`sign_in_only`/
+   `no_oauth`) replaces the old free-text `warning` field, and a new
+   `surface`/`otherSurfaces` split makes the "which product does this
+   guide actually cover" decision explicit instead of folding it into
+   the summary. Live-tested on Apple, which has at least three
+   OAuth-adjacent surfaces (Sign in with Apple, the App Store Connect
+   API, Apple Ads): the result correctly listed the other two as
+   `otherSurfaces` with reasons they weren't chosen, but merged the
+   first two into a single `surface` string ("Sign in with Apple / App
+   Store Connect API") instead of picking one, and classified the result
+   as `standard_oauth` rather than `sign_in_only` — arguably wrong, since
+   Sign in with Apple itself is identity-only with no general data API
+   behind it. The structural pieces (explicit classification, explicit
+   alternatives list) work; getting the classification itself right on
+   a provider with several genuinely blended surfaces is still an open
+   problem, consistent with the Apple Ads finding earlier in this
+   section.
+
 ## Limitations
 
 - **X (Twitter) and Reddit are intentionally left out of scope — both
@@ -404,8 +457,9 @@ integration directory," not an implementation step.
   providers unless the input names the specific product (e.g. "Gmail API",
   not "Google").
 - **The Slack and LinkedIn guides are docs-researched, not hands-on
-  tested** — every claim is marked `evidence: "docs"`, never `"tested"`,
-  and `docs/validation.md` says so explicitly. They're weaker than the
+  tested** — every claim is marked `evidence.level: "doc_sourced"`, never
+  `"hand_checked"`, and `docs/validation.md` says so explicitly. They're
+  weaker than the
   GitHub and Google guides for the same reason the agent's guides are: no
   firsthand account of what the actual UI looks like or what breaks in
   practice.

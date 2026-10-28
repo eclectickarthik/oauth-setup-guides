@@ -3,7 +3,17 @@
   "appName": "GitHub",
   "website": "https://github.com",
   "developerPortalUrl": "https://github.com/settings/developers",
-  "summary": "GitHub OAuth apps are created instantly in your account settings — no approval process. You get a client ID and secret immediately and can start testing right away.",
+  "surface": "GitHub OAuth App",
+  "otherSurfaces": [
+    {
+      "name": "GitHub App",
+      "whyNot": "GitHub's recommended option for scoped, per-repo access — covered in the decision below rather than as a separate surface, since both are the same underlying OAuth mechanism."
+    }
+  ],
+  "oauthFit": {
+    "value": "standard_oauth",
+    "reason": "Standard authorization_code flow with a real end-user consent step; instant, no review."
+  },
   "decision": {
     "question": "OAuth App or GitHub App?",
     "options": [
@@ -28,98 +38,111 @@
     "recommendation": "GitHub has two app types. OAuth App is faster but grants broad access. GitHub App gives limited, per-repo access and is GitHub's recommended option."
   },
   "difficulty": "easy",
-  "difficultyReason": "Creating an OAuth App is self-serve and instant for any account, with no review step. The only real decision up front is choosing OAuth App vs. GitHub App.",
-  "time": {
-    "setup": "5-10 min",
-    "approvalWait": "None"
+  "summary": "GitHub OAuth apps are created instantly in your account settings — no approval process. You get a client ID and secret immediately and can start testing right away. The only real decision up front is choosing OAuth App vs. GitHub App.",
+  "setupTime": {
+    "value": "5-10 min",
+    "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
   },
-  "accessCost": {
-    "tier": "free",
-    "pricingModel": "Free — no cost to create or use an OAuth App or call the REST API.",
-    "rates": "No per-call charges. Authenticated requests are rate-limited to 5,000 requests/hour (not billed); unauthenticated requests to 60/hour.",
-    "freeTierLimits": "No usage-based free-tier cap to run out of — the only ceiling is the rate limit itself.",
-    "sources": ["https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api"]
+  "approval": {
+    "paths": [
+      {
+        "name": "Any use (personal or third-party sign-in)",
+        "reviewRequired": false,
+        "wait": "None",
+        "notes": "No review is required to create or use an OAuth App, including for third-party users signing in.",
+        "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
+      }
+    ]
   },
-  "whenReviewIsNeeded": [
-    {
-      "text": "No review is required to create or use an OAuth App, including for third-party users signing in.",
-      "evidence": "tested",
-      "sources": []
+  "cost": {
+    "value": "Free — no cost to create or use an OAuth App or call the REST API.",
+    "notes": "No usage-based free-tier cap to run out of — the only ceiling is the rate limit itself.",
+    "evidence": {
+      "level": "doc_sourced",
+      "sourceUrl": "https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api",
+      "note": null
     }
-  ],
-  "requirements": [
+  },
+  "rateLimits": {
+    "value": "Authenticated requests: 5,000/hour (not billed). Unauthenticated requests: 60/hour.",
+    "evidence": {
+      "level": "doc_sourced",
+      "sourceUrl": "https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api",
+      "note": null
+    }
+  },
+  "prerequisites": [
     {
       "text": "A GitHub account (personal or organization) to register the app under.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "text": "A homepage URL and at least one redirect URI (callback URL) for your app. GitHub allows up to 10 redirect URIs per OAuth App.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     }
   ],
+  "scopes": {
+    "minimum": [
+      { "scope": "(none required)", "why": "GitHub OAuth Apps default to read access on public data with no scope; request only what the integration actually reads/writes beyond that." },
+      { "scope": "repo", "why": "Full read/write access to repositories — request only if the agent needs to read or write repo contents." }
+    ],
+    "optional": [
+      { "scope": "user", "why": "Read/write access to profile data, if the integration needs more than the public profile." },
+      { "scope": "workflow", "why": "Needed only if the agent manages GitHub Actions workflow files." }
+    ],
+    "modes": [],
+    "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
+  },
   "steps": [
     {
       "title": "Go to Developer settings",
-      "detail": "In GitHub, open Settings > Developer settings > OAuth Apps, then click 'New OAuth App'.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "In GitHub, open Settings > Developer settings > OAuth Apps, then click 'New OAuth App'.",
+      "owner": "both",
+      "agentAssist": "Can navigate here directly once a session is authenticated.",
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "title": "Fill in app details",
-      "detail": "Provide an application name, homepage URL, and at least one redirect URI. The homepage URL is not verified — any well-formed URL works for testing, including http://localhost:3000.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "Provide an application name, homepage URL, and at least one redirect URI. The homepage URL is not verified — any well-formed URL works for testing, including http://localhost:3000.",
+      "owner": "agent",
+      "agentAssist": "Can pre-fill the app name, homepage URL, and Composio's redirect URI directly.",
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "title": "Review the optional settings",
-      "detail": "Decide whether to enable 'Allow wildcard matching' (leave off unless you control all matching subdomains), 'Enable device flow' (only for CLI or headless agents), and 'Expire user access tokens' (on by default; issues a refresh token).",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "Decide whether to enable 'Allow wildcard matching' (leave off unless you control all matching subdomains), 'Enable device flow' (only for CLI or headless agents), and 'Expire user access tokens' (on by default; issues a refresh token).",
+      "owner": "human",
+      "agentAssist": null,
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "title": "Generate a client secret",
-      "detail": "After registering, click 'Generate a new client secret'. The client ID is shown immediately; the secret is shown once with a copy button — store both securely.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
-    },
-    {
-      "title": "Hand off the client ID and secret to Composio",
-      "detail": "Composio manages the authorization flow, token exchange, and refresh once it has these credentials — you don't implement any of that yourself.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "After registering, click 'Generate a new client secret'. The client ID is shown immediately; the secret is shown once with a copy button — store both securely.",
+      "owner": "human",
+      "agentAssist": null,
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     }
   ],
   "blockers": [
     {
       "problem": "It's easy to put the OAuth callback URL into the Homepage URL field by mistake.",
       "fix": "Homepage URL is just your app's info/marketing page. Put the exact callback URL your app sends as redirect_uri in the Redirect URI field instead.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "problem": "The optional checkboxes (wildcard matching, device flow, token expiry) aren't explained on the form.",
       "fix": "Leave 'Allow wildcard matching' off unless you control all matching subdomains. Enable 'Device flow' only for CLI or headless agents. Token expiry is on by default and issues a refresh token — leave it on unless you have a specific reason not to.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "problem": "Choosing between OAuth App and GitHub App before starting isn't obvious, and switching later means starting over.",
       "fix": "Use the decision above: OAuth App for the simplest per-user access across GitHub; GitHub App for scoped, per-repo, bot-identity access.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "problem": "You cannot delete your only client secret.",
       "fix": "Generate a second secret first, swap it into your app, then delete the old one.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     }
   ],
   "agentCanDo": [
@@ -132,10 +155,17 @@
     "Choose the optional settings not explained on the form",
     "Generate and securely store the client secret"
   ],
+  "composioHandoff": "Paste the client ID and client secret into Composio, with Composio's callback URL registered as the OAuth App's redirect URI — Composio manages the authorization flow, token exchange, and refresh from there.",
   "openQuestions": [
     "Whether the client secret is shown only once (not checked by reloading the page)",
     "Exact time for an experienced developer (3-5 min is an estimate, not tested)",
     "Whether Marketplace listing adds a review step (not tested)"
+  ],
+  "sources": [
+    {
+      "title": "Rate limits for the REST API",
+      "url": "https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api"
+    }
   ],
   "generatedBy": "manual",
   "lastVerified": "2026-10-28"

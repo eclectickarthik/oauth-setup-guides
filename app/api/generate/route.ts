@@ -2,6 +2,7 @@ import { generateGuide, slugify } from "@/lib/agent";
 import { needsConfirmation, resolveApp } from "@/lib/resolve";
 import { getLibraryGuides } from "@/lib/library";
 import { getGuideStore } from "@/lib/store";
+import { verifyGuide } from "@/lib/verifier";
 
 export const maxDuration = 120;
 
@@ -95,9 +96,20 @@ export async function POST(req: Request) {
           }
         }
 
-        const guide = await generateGuide(effective, (message, service) => {
+        const drafted = await generateGuide(effective, (message, service) => {
           send("progress", { message, service });
         });
+
+        send("progress", { message: "Verifying claims against sources…", service: "verifier" });
+        const { guide: verified, changes, unverified } = await verifyGuide(
+          drafted,
+          (message, service) => send("progress", { message, service })
+        );
+        const guide = {
+          ...verified,
+          verifierChanges: changes,
+          verifierUnverified: unverified,
+        };
 
         const takenSlugs = new Set(library.map((g) => g.slug));
         if (takenSlugs.has(guide.slug)) {

@@ -3,7 +3,12 @@
   "appName": "Slack",
   "website": "https://slack.com",
   "developerPortalUrl": "https://api.slack.com/apps",
-  "summary": "Creating a Slack app and installing it to your own workspace is instant with no review. Listing it in the Slack Marketplace for anyone to install is a different story — it requires 10+ active installs before you can even submit, then a two-phase review.",
+  "surface": "Slack app OAuth (Web API)",
+  "otherSurfaces": [],
+  "oauthFit": {
+    "value": "standard_oauth",
+    "reason": "Standard authorization_code flow (OAuth v2) with a real consent/install step; instant for a single workspace, review only required for public Marketplace distribution."
+  },
   "decision": {
     "question": "Will this run in your own workspace only, or get listed for any workspace to install?",
     "options": [
@@ -24,98 +29,165 @@
     "recommendation": "Start with a single-workspace install to build and test. Pursue Marketplace listing only once you have real usage — the install threshold and review timeline make it a late-stage step, not a launch blocker."
   },
   "difficulty": "medium",
-  "difficultyReason": "Installing a Slack app to the workspace you created it in requires no review and works immediately. But distributing it publicly via the Slack Marketplace requires 10+ active installs sustained through the whole review, plus a two-phase review process that can take up to roughly 12 weeks.",
-  "time": {
-    "setup": "15-30 min",
-    "approvalWait": "None to install to your own workspace. For Slack Marketplace listing: up to 10 business days for a preliminary review, then up to 10 weeks for the functional review on new submissions (6 weeks for resubmissions) — this cannot be expedited.",
-    "notes": "Official docs don't state a hands-on setup time; the estimate above is based on the number of required steps (create app, configure scopes, set redirect URI, install), not a documented figure."
-  },
-  "accessCost": {
-    "tier": "free",
-    "pricingModel": "Free — the Slack Web API has no usage-based or per-call pricing. A Slack workspace (free or paid tier) is required to develop against, but workspace subscription pricing is separate from API usage.",
-    "rates": "No per-call charges. Subject to per-method rate limits (tiered, roughly 1 to 100+ requests/minute depending on the method).",
-    "freeTierLimits": "No metered usage cap to run out of — only the per-method rate limits apply, regardless of workspace plan.",
-    "sources": ["https://api.slack.com/apis/rate-limits"]
-  },
-  "whenReviewIsNeeded": [
-    {
-      "text": "Listing an app in the Slack Marketplace for public distribution requires passing a two-phase review (preliminary, then functional).",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/"]
+  "summary": "Creating a Slack app and installing it to your own workspace is instant with no review. Listing it in the Slack Marketplace for anyone to install is a different story — it requires 10+ active installs before you can even submit, then a two-phase review that can take up to roughly 12 weeks.",
+  "setupTime": {
+    "value": "15-30 min",
+    "evidence": {
+      "level": "inferred",
+      "sourceUrl": null,
+      "note": "Official docs don't state a hands-on setup time; the estimate above is based on the number of required steps (create app, configure scopes, set redirect URI, install), not a documented figure."
     }
-  ],
-  "requirements": [
+  },
+  "approval": {
+    "paths": [
+      {
+        "name": "Single workspace (your own)",
+        "reviewRequired": false,
+        "wait": "None",
+        "notes": "Install to the workspace you created the app in — instant, no review.",
+        "evidence": { "level": "doc_sourced", "sourceUrl": "https://api.slack.com/apps", "note": null }
+      },
+      {
+        "name": "Slack Marketplace (public distribution)",
+        "reviewRequired": true,
+        "wait": "Up to 10 business days for a preliminary review, then up to 10 weeks for the functional review on new submissions (6 weeks for resubmissions) — cannot be expedited",
+        "notes": "Requires 10+ active installs (used within the last 28 days) before you can even submit, sustained throughout the review.",
+        "evidence": {
+          "level": "doc_sourced",
+          "sourceUrl": "https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/",
+          "note": null
+        }
+      }
+    ]
+  },
+  "cost": {
+    "value": "Free — the Slack Web API has no usage-based or per-call pricing.",
+    "notes": "A Slack workspace (free or paid tier) is required to develop against, but workspace subscription pricing is separate from API usage. No metered usage cap to run out of — only per-method rate limits apply.",
+    "evidence": {
+      "level": "doc_sourced",
+      "sourceUrl": "https://api.slack.com/apis/rate-limits",
+      "note": null
+    }
+  },
+  "rateLimits": {
+    "value": "No per-call charges. Subject to per-method rate limits (tiered, roughly 1 to 100+ requests/minute depending on the method), regardless of workspace plan.",
+    "evidence": {
+      "level": "doc_sourced",
+      "sourceUrl": "https://api.slack.com/apis/rate-limits",
+      "note": null
+    }
+  },
+  "prerequisites": [
     {
       "text": "A Slack workspace to develop in — your own, or a development sandbox.",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/quickstart"]
+      "evidence": { "level": "doc_sourced", "sourceUrl": "https://docs.slack.dev/quickstart", "note": null }
     },
     {
       "text": "A publicly reachable HTTPS redirect URI. Slack rejects plain http:// and any URL containing an anchor (#).",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://docs.slack.dev/authentication/installing-with-oauth",
+        "note": null
+      }
     },
     {
       "text": "If targeting Marketplace listing: the app must already be installed on 10 or more active workspaces (used within the last 28 days) before submission, sustained throughout the review, and fully tested end-to-end including uninstall on a non-development workspace.",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/"]
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/",
+        "note": null
+      }
     }
   ],
+  "scopes": {
+    "minimum": [
+      { "scope": "chat:write", "why": "Send messages as the app's bot identity — the most common agent integration need." }
+    ],
+    "optional": [
+      { "scope": "channels:read", "why": "List public channels, if the agent needs to discover where to post." },
+      { "scope": "users:read", "why": "Look up workspace members, if the agent needs to mention or DM specific users." }
+    ],
+    "modes": [
+      {
+        "name": "Bot scopes (scope parameter)",
+        "whenToUse": "The app's own identity and permissions — use for most integrations."
+      },
+      {
+        "name": "User scopes (user_scope parameter)",
+        "whenToUse": "Acting on behalf of the installing user specifically, rather than as the app's own bot identity."
+      }
+    ],
+    "evidence": {
+      "level": "doc_sourced",
+      "sourceUrl": "https://docs.slack.dev/authentication/installing-with-oauth",
+      "note": null
+    }
+  },
   "steps": [
     {
       "title": "Create the app",
-      "detail": "Go to api.slack.com/apps, click 'Create New App', choose 'From scratch' or 'From an app manifest', and select the workspace to develop in.",
-      "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://api.slack.com/apps"]
+      "description": "Go to api.slack.com/apps, click 'Create New App', choose 'From scratch' or 'From an app manifest', and select the workspace to develop in.",
+      "owner": "both",
+      "agentAssist": "Can pre-fill the app name and manifest once a session is authenticated.",
+      "evidence": { "level": "doc_sourced", "sourceUrl": "https://api.slack.com/apps", "note": null }
     },
     {
       "title": "Configure OAuth scopes",
-      "detail": "Under OAuth & Permissions, add bot scopes (the app's own identity and permissions, via the scope parameter) and/or user scopes (acting on behalf of a user, via user_scope) depending on what the integration needs.",
-      "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+      "description": "Under OAuth & Permissions, add bot scopes (the app's own identity and permissions, via the scope parameter) and/or user scopes (acting on behalf of a user, via user_scope) depending on what the integration needs.",
+      "owner": "agent",
+      "agentAssist": "Can pre-fill the minimum scopes needed for the integration.",
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://docs.slack.dev/authentication/installing-with-oauth",
+        "note": null
+      }
     },
     {
       "title": "Set the redirect URI",
-      "detail": "Add the HTTPS redirect URI under OAuth & Permissions. It must exactly match — or be a subdirectory of — the URL sent in the authorization request.",
-      "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+      "description": "Add the HTTPS redirect URI under OAuth & Permissions. It must exactly match — or be a subdirectory of — the URL sent in the authorization request.",
+      "owner": "agent",
+      "agentAssist": "Can pre-fill Composio's redirect URI directly.",
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://docs.slack.dev/authentication/installing-with-oauth",
+        "note": null
+      }
     },
     {
       "title": "Install to your workspace",
-      "detail": "Click 'Install to Workspace' to generate a token and start testing immediately — no review needed for this step.",
-      "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://api.slack.com/apps"]
-    },
-    {
-      "title": "Hand off the client ID and secret to Composio",
-      "detail": "Composio manages the authorization flow, token exchange, and refresh once it has these credentials — you don't implement any of that yourself.",
-      "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+      "description": "Click 'Install to Workspace' to generate a token and start testing immediately — no review needed for this step.",
+      "owner": "human",
+      "agentAssist": null,
+      "evidence": { "level": "doc_sourced", "sourceUrl": "https://api.slack.com/apps", "note": null }
     }
   ],
   "blockers": [
     {
       "problem": "Redirect URI rejected by Slack.",
       "fix": "It must be HTTPS, contain no anchor (#), and exactly match or be a subdirectory of a URL configured under OAuth & Permissions.",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://docs.slack.dev/authentication/installing-with-oauth",
+        "note": null
+      }
     },
     {
       "problem": "App can't be installed by other workspaces.",
       "fix": "Expected before the app is approved for public distribution — until then it's restricted to the workspace it was created in. The team parameter only becomes a hint (not a restriction) once the app is distributed.",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://docs.slack.dev/authentication/installing-with-oauth",
+        "note": null
+      }
     },
     {
       "problem": "Marketplace submission rejected before review even starts.",
       "fix": "Reach 10+ active installs (used within the last 28 days) and keep that threshold through the whole review. Fully test the install, setup, and uninstall flow on a non-development workspace first.",
-      "evidence": "docs",
-      "sources": ["https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/"]
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/",
+        "note": null
+      }
     }
   ],
   "agentCanDo": [
@@ -129,10 +201,33 @@
     "Click Install to Workspace",
     "If pursuing Marketplace listing: reach the 10-install threshold and handle the review submission"
   ],
+  "composioHandoff": "Paste the client ID and client secret into Composio, with Composio's callback URL registered as the OAuth redirect URI — Composio manages the authorization flow, token exchange, and refresh from there.",
   "openQuestions": [
     "Exact hands-on setup time isn't stated in official docs — the estimate given is based on the number of required steps, not a documented figure.",
     "Whether rate limits or a paid-tier requirement gate any part of OAuth app creation or Marketplace listing isn't addressed in the docs reviewed.",
     "The exact scope list considered 'extensive access' or 'restricted' for Marketplace eligibility, beyond the named examples (admin.*, search:read, triggers:*)."
+  ],
+  "sources": [
+    {
+      "title": "Slack API rate limits",
+      "url": "https://api.slack.com/apis/rate-limits"
+    },
+    {
+      "title": "Installing with OAuth",
+      "url": "https://docs.slack.dev/authentication/installing-with-oauth"
+    },
+    {
+      "title": "Slack Marketplace review guide",
+      "url": "https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/"
+    },
+    {
+      "title": "Slack Quickstart",
+      "url": "https://docs.slack.dev/quickstart"
+    },
+    {
+      "title": "Your Apps — Slack API",
+      "url": "https://api.slack.com/apps"
+    }
   ],
   "generatedBy": "manual",
   "lastVerified": "2026-10-28"

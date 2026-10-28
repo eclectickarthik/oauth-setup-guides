@@ -3,6 +3,13 @@
 What was tested, corrected, or couldn't be verified for each library guide,
 compared against the original hypothesis in `CLAUDE.md`.
 
+> **Note on schema references below:** this file predates a later schema
+> redesign (see the README's "What I learned / corrected" section). Where
+> this file says `evidence: "docs"`/`"tested"`, the current schema uses
+> `evidence.level: "doc_sourced"`/`"hand_checked"` — same meaning, new
+> shape. Findings and corrections described below are otherwise still
+> accurate; only the field names changed.
+
 ## GitHub
 
 Tested 2026-10-28 by Karthik (manual setup, personal account). Covered both

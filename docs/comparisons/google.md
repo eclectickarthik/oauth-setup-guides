@@ -1,62 +1,47 @@
 # Comparison: Google
 
-The generated guide provides a reasonable high-level overview of Google OAuth, but misses several critical operational details found in the hand-checked guide, such as the distinction between internal/external/testing modes, the trap of uploading a logo triggering verification, the specific 100-test-user limit, and the 'AI-powered agent' client setting warning.
+The generated guide focuses on general Google Workspace / Drive / Docs / Sheets APIs, whereas the answer key specifically focuses on the Gmail API via the Google Auth Platform. While much of the Google Cloud console setup process is structurally similar, the specific scopes, APIs enabled, and certain nuances (like the 7-day refresh token rule and the AI-powered agent client setting) differ between the two guides.
 
-## Wrong (1)
+## Wrong (2)
 
-- **[difficulty]** medium
-  - Hand-checked guide rates difficulty as 'hard' due to complex verification and CASA security assessment requirements for restricted scopes.
+- **[surface]** Google Workspace OAuth 2.0 (Docs, Drive, Sheets APIs)
+  - The answer key covers Gmail API specifically, not Docs, Drive, or Sheets.
+- **[scopes]** Minimum scope: drive.file; Optional scopes: documents, spreadsheets, drive
+  - Generated guide uses Drive/Docs/Sheets scopes, whereas the answer key is for Gmail API scopes (gmail.readonly, gmail.send, gmail.modify, userinfo.email).
 
 ## Outdated (0)
 
 _None._
 
-## Unsupported (not covered by the answer key) (3)
+## Unsupported (not covered by the answer key) (4)
 
-- **[whenReviewIsNeeded]** If testing an app configured in 'Testing' publishing status with external users, refresh tokens expire in 7 days unless restricted to basic profile/email scopes.
-  - The answer key does not mention the 7-day token expiration rule for testing mode.
-- **[requirements]** For restricted scopes (e.g., broad Drive file access), apps must fall into approved categories (Backup and sync, Productivity and education, or Reporting and security).
-  - The answer key does not mention specific approved scope categories.
-- **[blockers]** Refresh tokens issued to apps in 'Testing' mode for external users expire after 7 days.
-  - The answer key does not mention this blocker.
+- **[otherSurfaces]** Service Accounts and OpenID Connect
+  - Answer key doesn't address service accounts or OIDC in otherSurfaces.
+- **[approval]** External user type in Testing status issues refresh tokens expiring in 7 days.
+  - Answer key does not mention the 7-day refresh token expiration rule for testing mode.
+- **[blockers]** Refresh tokens expiring every 7 days in Testing mode
+  - Not mentioned in the answer key blockers.
+- **[blockers]** Inability to delete the OAuth consent screen
+  - Not mentioned in the answer key blockers.
 
-## Correct (15)
+## Correct (4)
 
-- **[difficultyReason]** Setting up credentials and code is straightforward, but public apps requesting sensitive or restricted scopes must undergo Google's OAuth app verification and security assessments, which can take days to weeks.
-  - Accurately reflects the core reason for difficulty regarding verification and security assessments.
-- **[time.setup]** 15-30 minutes to configure project, consent screen, and client credentials.
-  - Roughly aligns with the hand-checked guide's 30-60 min estimate.
-- **[time.approvalWait]** A few hours to several days (or longer for restricted scopes / security assessments).
-  - Generally aligns with the hand-checked guide's timeline descriptions.
-- **[accessCost]** Google Cloud Console projects are generally free to set up and use for basic API access, but individual Google APIs may have usage limits, quotas, or billing requirements...
-  - Aligns with the hand-checked guide regarding free quotas and potential billing terms.
-- **[whenReviewIsNeeded]** If your public application uses scopes that permit access to certain user data (sensitive or restricted scopes), it must complete an OAuth verification process.
-  - Matches answer key requirement for sensitive/restricted scope verification.
-- **[whenReviewIsNeeded]** If your app stores restricted scope data on servers or transmits it, you must go through a security assessment.
-  - Matches answer key requirements for restricted scopes.
-- **[requirements]** A Google Account and access to the Google API Console / Google Cloud Console.
-  - Matches answer key requirement for a Google Cloud project/account.
-- **[requirements]** Configured OAuth consent screen with declared scopes and application details.
-  - Matches answer key requirements for Branding.
-- **[requirements]** Authorized redirect URIs registered in the Google API Console matching your application endpoints.
-  - Matches answer key requirements for client setup.
-- **[steps]** Start building: Enable APIs in your project
-  - Matches the 'Enable the APIs you need' step in the answer key.
-- **[steps]** Start building: Configure the OAuth consent screen
-  - Matches the Branding setup step.
-- **[steps]** Start building: Create OAuth client credentials
-  - Matches the OAuth client creation step.
-- **[steps]** Start building: Implement authorization flow in your code
-  - Matches the authorization flow step.
-- **[steps]** Go live: Submit app for verification
-  - Matches the verification submission step.
-- **[blockers]** Redirect URI mismatch error during authorization.
-  - Matches Error 400: redirect_uri_mismatch in the answer key.
+- **[summary]** Developers can integrate Google Workspace APIs by configuring an OAuth consent screen and client credentials...
+  - Generally accurate description of Google's OAuth setup process.
+- **[steps]** Create or Select a Google Cloud Project ... Configure the OAuth Consent Screen ... Add Test Users ... Configure Scopes ... Create OAuth Client Credentials
+  - The general sequence of steps matches the Google Cloud console workflow described in the answer key.
+- **[steps]** Step owners set to human during second pass verification
+  - Aligned with the hand-checked guide's assignment of steps like creating projects and choosing audiences to the human.
+- **[composioHandoff]** Provide your Google OAuth Client ID and Client Secret to Composio to finalize the integration.
+  - Matches the core handoff requirement stated in the answer key.
 
-## Missed from the hand-checked guide (5)
+## Missed from the hand-checked guide (8)
 
-- **[decision / Audience]** The distinction between Internal (Workspace org only) and External (Testing vs Production) publishing audiences, including the 100 test user limit for External Testing mode.
-- **[blockers / Branding]** The specific warning that uploading a logo to Branding triggers verification even for basic scopes.
-- **[steps / Client settings]** The warning about the 'Use this client for an AI-powered agent' checkbox being a non-reversible/high-impact decision.
-- **[blockers]** The 'Ineligible accounts not added' test user popup quirk.
-- **[time.approvalWait]** The specific requirement for restricted scopes like Gmail to undergo a paid third-party security assessment (CASA) costing $500-$4,500 that repeats annually.
+- **[surface]** The guide specifically covers Gmail API scopes via Google Auth Platform.
+- **[decision]** The choice between Internal, External (Testing), and External (Production) with their specific tradeoffs and recommendations.
+- **[setupTime]** Specific benchmarked setup time of 30-60 minutes based on hand-checked testing.
+- **[approval]** Detailed breakdown of approval paths including the paid third-party security assessment (CASA) costing $500-$4,500 for restricted scopes like Gmail.
+- **[cost]** Specific quota limits such as 1,200,000 quota units/minute per project and 6,000 units/minute per user.
+- **[prerequisites]** Requirement that the specific Google API (e.g., Gmail API) must be enabled on the project before it can be used.
+- **[steps]** Step regarding the 'AI-powered agent' client setting and its warning about being a one-way decision.
+- **[blockers]** Specific error handling for Error 400 (redirect_uri_mismatch), Error 403 (access_denied), the 'Ineligible accounts not added' popup, and the logo-upload verification trigger.

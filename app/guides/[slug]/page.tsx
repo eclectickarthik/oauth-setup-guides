@@ -3,6 +3,7 @@ import { getLibraryGuide } from "@/lib/library";
 import { getGuideStore } from "@/lib/store";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import EvidenceBadge from "@/components/EvidenceBadge";
+import type { Evidence } from "@/lib/schema";
 
 const DIFFICULTY_STYLES: Record<string, string> = {
   easy: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
@@ -11,16 +12,49 @@ const DIFFICULTY_STYLES: Record<string, string> = {
   gated: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
 };
 
-const ACCESS_COST_STYLES: Record<string, string> = {
-  free: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  freemium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
-  paid: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+const OAUTH_FIT_STYLES: Record<string, string> = {
+  standard_oauth: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  oauth_with_caveats: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  sign_in_only: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  no_oauth: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+};
+
+const OAUTH_FIT_LABEL: Record<string, string> = {
+  standard_oauth: "Standard OAuth",
+  oauth_with_caveats: "OAuth, with caveats",
+  sign_in_only: "Sign-in only",
+  no_oauth: "No OAuth",
+};
+
+const OWNER_LABEL: Record<string, string> = {
+  human: "human",
+  agent: "agent",
+  both: "human → agent",
 };
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
       {children}
+    </div>
+  );
+}
+
+function EvidenceLegend() {
+  const items: { level: string; label: string }[] = [
+    { level: "hand_checked", label: "hand-checked" },
+    { level: "doc_sourced", label: "doc-sourced" },
+    { level: "inferred", label: "inferred" },
+    { level: "uncertain", label: "uncertain" },
+  ];
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-500">
+      <span className="font-medium">Evidence:</span>
+      {items.map((item) => (
+        <span key={item.level} className="flex items-center gap-1.5">
+          <EvidenceBadge evidence={{ level: item.level, sourceUrl: null, note: null } as Evidence} />
+        </span>
+      ))}
     </div>
   );
 }
@@ -44,33 +78,37 @@ export default async function GuidePage({
 
   // "manual" means a human wrote the file, not that every claim was
   // hands-on verified — several library guides are manually authored but
-  // entirely docs-researched (evidence: "docs"), never actually tested
-  // against the provider's real UI. Only claim "Hand-checked" when at
-  // least one claim in the guide is marked "tested".
-  const hasTestedEvidence = [
+  // entirely docs-researched (evidence: doc_sourced), never actually
+  // tested against the provider's real UI. Only claim "Hand-checked" when
+  // at least one claim in the guide is marked hand_checked.
+  const hasHandCheckedEvidence = [
     ...guide.steps,
-    ...guide.requirements,
+    ...guide.prerequisites,
     ...guide.blockers,
-  ].some((claim) => claim.evidence === "tested");
+  ].some((claim) => claim.evidence.level === "hand_checked");
   const provenanceLabel =
     guide.generatedBy === "manual"
-      ? hasTestedEvidence
+      ? hasHandCheckedEvidence
         ? `Hand-checked · last verified ${guide.lastVerified}`
         : `Docs-researched, not hands-on tested · last verified ${guide.lastVerified}`
-      : `Agent-generated · generated on ${guide.lastVerified}`;
+      : `Agent-generated · generated on ${guide.lastVerified}${guide.verifiedBySecondPass ? " · verified by second pass" : ""}`;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <main className="mx-auto max-w-3xl px-6 py-16">
-        {guide.warning && (
-          <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
+        {guide.oauthFit.value === "no_oauth" && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-700/60 dark:bg-red-900/20 dark:text-red-200">
             <span className="mt-0.5 shrink-0">⚠️</span>
-            <p>{guide.warning}</p>
+            <p>
+              <span className="font-medium">No user-delegated OAuth here.</span>{" "}
+              {guide.oauthFit.reason}
+            </p>
           </div>
         )}
+
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
                 {guide.appName}
               </h1>
@@ -79,7 +117,22 @@ export default async function GuidePage({
               >
                 {guide.difficulty}
               </span>
+              <details className="group relative">
+                <summary
+                  className={`cursor-pointer list-none rounded-full px-2 py-0.5 text-xs font-medium ${OAUTH_FIT_STYLES[guide.oauthFit.value]}`}
+                >
+                  {OAUTH_FIT_LABEL[guide.oauthFit.value]}
+                </summary>
+                <p className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-zinc-200 bg-white p-2 text-xs font-normal text-zinc-700 shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                  {guide.oauthFit.reason}
+                </p>
+              </details>
             </div>
+            {guide.surface !== guide.appName && (
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                Surface: {guide.surface}
+              </p>
+            )}
             {wasCorrected && (
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
                 Showing results for {guide.appName} (you typed &quot;{from}&quot;)
@@ -88,6 +141,19 @@ export default async function GuidePage({
             <p className="mt-2 max-w-xl text-zinc-600 dark:text-zinc-400">
               {guide.summary}
             </p>
+            {guide.otherSurfaces.length > 0 && (
+              <p className="mt-2 max-w-xl text-sm text-zinc-500 dark:text-zinc-500">
+                <span className="font-medium text-zinc-600 dark:text-zinc-400">
+                  Also considered:{" "}
+                </span>
+                {guide.otherSurfaces.map((s, i) => (
+                  <span key={i}>
+                    {i > 0 && "; "}
+                    {s.name} ({s.whyNot})
+                  </span>
+                ))}
+              </p>
+            )}
           </div>
           <CopyLinkButton />
         </div>
@@ -110,64 +176,66 @@ export default async function GuidePage({
           )}
         </div>
 
-        <p className="mt-4 text-sm text-zinc-700 dark:text-zinc-300">{guide.difficultyReason}</p>
+        <EvidenceLegend />
 
         <section className="mt-8 grid gap-4 sm:grid-cols-3">
           <Card>
-            <p className="text-xs uppercase text-zinc-500">Hands-on setup time</p>
-            <p className="mt-1 font-medium text-black dark:text-zinc-50">{guide.time.setup}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase text-zinc-500">Hands-on setup time</p>
+              <EvidenceBadge evidence={guide.setupTime.evidence} />
+            </div>
+            <p className="mt-1 font-medium text-black dark:text-zinc-50">
+              {guide.setupTime.value}
+            </p>
           </Card>
           <Card>
-            <p className="text-xs uppercase text-zinc-500">Approval / review wait</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase text-zinc-500">Rate limits</p>
+              <EvidenceBadge evidence={guide.rateLimits.evidence} />
+            </div>
             <p className="mt-1 font-medium text-black dark:text-zinc-50">
-              {guide.time.approvalWait}
+              {guide.rateLimits.value}
             </p>
           </Card>
           <Card>
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase text-zinc-500">API access cost</p>
-              {guide.accessCost && (
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${ACCESS_COST_STYLES[guide.accessCost.tier]}`}
-                >
-                  {guide.accessCost.tier}
-                </span>
-              )}
+              <EvidenceBadge evidence={guide.cost.evidence} />
             </div>
-            {guide.accessCost ? (
-              <>
-                <p className="mt-1 font-medium text-black dark:text-zinc-50">
-                  {guide.accessCost.pricingModel}
-                </p>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                  {guide.accessCost.rates}
-                </p>
-              </>
-            ) : (
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">Not recorded.</p>
+            <p className="mt-1 font-medium text-black dark:text-zinc-50">{guide.cost.value}</p>
+            {guide.cost.notes && (
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{guide.cost.notes}</p>
             )}
           </Card>
         </section>
-        {guide.time.notes && (
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">{guide.time.notes}</p>
-        )}
-        {guide.accessCost && (
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">
-            <span className="font-medium text-zinc-600 dark:text-zinc-400">Free-tier limits: </span>
-            {guide.accessCost.freeTierLimits}
-            {guide.accessCost.sources[0] && (
-              <>
-                {" — "}
-                <a
-                  href={guide.accessCost.sources[0]}
-                  className="underline hover:text-black dark:hover:text-zinc-50"
-                >
-                  source
-                </a>
-              </>
-            )}
-          </p>
-        )}
+
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Approval</h2>
+          <ul className="mt-3 space-y-2">
+            {guide.approval.paths.map((path, i) => (
+              <li
+                key={i}
+                className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-black dark:text-zinc-50">{path.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase text-zinc-500">
+                      {path.reviewRequired ? "review required" : "no review"}
+                    </span>
+                    <EvidenceBadge evidence={path.evidence} />
+                  </div>
+                </div>
+                <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {path.wait}
+                </p>
+                {path.notes && (
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{path.notes}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
 
         {guide.decision && (
           <section className="mt-8 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
@@ -198,31 +266,60 @@ export default async function GuidePage({
           </section>
         )}
 
-        {guide.requirements.length > 0 && (
+        <section className="mt-8">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Scopes</h2>
+            <EvidenceBadge evidence={guide.scopes.evidence} />
+          </div>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs uppercase text-zinc-500">Minimum for a typical agent</p>
+              <ul className="mt-2 space-y-1 text-sm">
+                {guide.scopes.minimum.map((s, i) => (
+                  <li key={i}>
+                    <code className="rounded bg-zinc-200 px-1 py-0.5 text-xs dark:bg-zinc-800">
+                      {s.scope}
+                    </code>{" "}
+                    <span className="text-zinc-600 dark:text-zinc-400">{s.why}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-zinc-500">Optional / advanced</p>
+              <ul className="mt-2 space-y-1 text-sm">
+                {guide.scopes.optional.map((s, i) => (
+                  <li key={i}>
+                    <code className="rounded bg-zinc-200 px-1 py-0.5 text-xs dark:bg-zinc-800">
+                      {s.scope}
+                    </code>{" "}
+                    <span className="text-zinc-600 dark:text-zinc-400">{s.why}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          {guide.scopes.modes.length > 0 && (
+            <ul className="mt-3 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+              {guide.scopes.modes.map((m, i) => (
+                <li key={i}>
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">{m.name}: </span>
+                  {m.whenToUse}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {guide.prerequisites.length > 0 && (
           <section className="mt-8">
             <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
               Before you start
             </h2>
             <ul className="mt-3 space-y-2">
-              {guide.requirements.map((claim, i) => (
+              {guide.prerequisites.map((claim, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
-                  <EvidenceBadge evidence={claim.evidence} sources={claim.sources} />
-                  <span className="text-zinc-700 dark:text-zinc-300">{claim.text}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {guide.whenReviewIsNeeded.length > 0 && (
-          <section className="mt-8">
-            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
-              When review is needed
-            </h2>
-            <ul className="mt-3 space-y-2">
-              {guide.whenReviewIsNeeded.map((claim, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <EvidenceBadge evidence={claim.evidence} sources={claim.sources} />
+                  <EvidenceBadge evidence={claim.evidence} />
                   <span className="text-zinc-700 dark:text-zinc-300">{claim.text}</span>
                 </li>
               ))}
@@ -245,13 +342,23 @@ export default async function GuidePage({
                     {step.title}
                   </span>
                   <div className="flex items-center gap-2">
-                    <EvidenceBadge evidence={step.evidence} sources={step.sources} />
-                    <span className="text-xs uppercase text-zinc-500">{step.actor}</span>
+                    <EvidenceBadge evidence={step.evidence} />
+                    <span className="text-xs uppercase text-zinc-500">
+                      {OWNER_LABEL[step.owner]}
+                    </span>
                   </div>
                 </div>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                  {step.detail}
+                  {step.description}
                 </p>
+                {step.agentAssist && (
+                  <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                    <span className="font-medium text-zinc-600 dark:text-zinc-400">
+                      Agent can help:{" "}
+                    </span>
+                    {step.agentAssist}
+                  </p>
+                )}
               </li>
             ))}
           </ol>
@@ -272,7 +379,7 @@ export default async function GuidePage({
                     <span className="font-medium text-black dark:text-zinc-50">
                       {blocker.problem}
                     </span>
-                    <EvidenceBadge evidence={blocker.evidence} sources={blocker.sources} />
+                    <EvidenceBadge evidence={blocker.evidence} />
                   </div>
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                     {blocker.fix}
@@ -302,6 +409,56 @@ export default async function GuidePage({
           </Card>
         </section>
 
+        <section className="mt-8 rounded-lg border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900">
+          <p className="text-xs uppercase text-zinc-500">Composio handoff</p>
+          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+            {guide.composioHandoff}
+          </p>
+        </section>
+
+        {guide.sources.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Sources</h2>
+            <ul className="mt-3 space-y-1 text-sm">
+              {guide.sources.map((s, i) => (
+                <li key={i}>
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-600 underline hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
+                  >
+                    {s.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {guide.verifierChanges && guide.verifierChanges.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
+              What we changed after checking
+            </h2>
+            <ul className="mt-3 space-y-2">
+              {guide.verifierChanges.map((change, i) => (
+                <li
+                  key={i}
+                  className="rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+                >
+                  <p className="font-medium text-black dark:text-zinc-50">{change.field}</p>
+                  <p className="mt-1 text-zinc-500 dark:text-zinc-500 line-through">
+                    {change.before}
+                  </p>
+                  <p className="mt-1 text-zinc-700 dark:text-zinc-300">{change.after}</p>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">{change.reason}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {guide.openQuestions.length > 0 && (
           <section className="mt-8">
             <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
@@ -309,6 +466,19 @@ export default async function GuidePage({
             </h2>
             <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
               {guide.openQuestions.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {guide.verifierUnverified && guide.verifierUnverified.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">
+              Still unverified
+            </h2>
+            <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+              {guide.verifierUnverified.map((item, i) => (
                 <li key={i}>{item}</li>
               ))}
             </ul>

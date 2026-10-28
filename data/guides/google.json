@@ -3,7 +3,17 @@
   "appName": "Google (Gmail API via Google Auth Platform)",
   "website": "https://www.google.com",
   "developerPortalUrl": "https://console.cloud.google.com/auth/overview",
-  "summary": "Google OAuth is fast to set up for testing — no review needed for up to 100 test users. But production access to sensitive scopes needs Google verification, and restricted scopes like Gmail additionally require a paid third-party security assessment that can take weeks and repeats annually.",
+  "surface": "Google OAuth (Gmail API scopes)",
+  "otherSurfaces": [
+    {
+      "name": "Other Google APIs behind the same OAuth client (e.g. Maps Platform)",
+      "whyNot": "Have their own separate paid pricing not covered by this guide — this guide covers Gmail API specifically."
+    }
+  ],
+  "oauthFit": {
+    "value": "standard_oauth",
+    "reason": "Standard authorization_code flow with a real consent screen; restricted scopes add verification and a paid security assessment, but the flow itself is standard."
+  },
   "decision": {
     "question": "Who will connect: only people in your Google Workspace org, or anyone with a Google account?",
     "options": [
@@ -29,149 +39,176 @@
     "recommendation": "Start with External in Testing mode. Decide on verification as soon as you know which scopes you need."
   },
   "difficulty": "hard",
-  "difficultyReason": "Testing mode is fast and review-free for up to 100 users. But taking an app with sensitive scopes to production requires Google verification (about 10 business days), and restricted scopes like Gmail additionally require a paid third-party security assessment (CASA) that can take weeks and must be redone annually.",
-  "time": {
-    "setup": "30-60 min to a working Testing-mode setup",
-    "approvalWait": "None in Testing mode. For production with sensitive scopes: about 10 business days. For restricted scopes (e.g. Gmail): verification plus a paid security assessment, several weeks, repeated annually.",
-    "notes": "Measured 42 min total in this test for project setup, Branding, Audience, client creation, fixing 3 errors, and testing two scopes. Tester had prior basic Google OAuth experience, so a first-timer may take longer. Verification and security-assessment time for production were not tested directly — see sources on the relevant claims."
-  },
-  "accessCost": {
-    "tier": "freemium",
-    "pricingModel": "OAuth sign-in itself is free. Standard use of the Gmail API behind it is free within generous per-minute/per-day quotas measured in quota units, not dollars; other Google APIs behind OAuth (e.g. Maps Platform) can have their own separate paid pricing not covered by this guide.",
-    "rates": "Gmail API: no per-call dollar charge for standard use. Different methods cost different quota units (e.g. drafts.send = 100 units), capped at 1,200,000 units/minute per project and 6,000 units/minute per user.",
-    "freeTierLimits": "1,200,000 quota units/minute per project, 6,000 units/minute per user, 80,000,000 units/day. Google has signaled usage beyond quota limits may incur Cloud billing charges later in 2026 — not confirmed whether this is already in effect.",
-    "sources": ["https://developers.google.com/workspace/gmail/api/reference/quota"]
-  },
-  "whenReviewIsNeeded": [
-    {
-      "text": "No review is needed in Testing mode, whether Internal or External with up to 100 test users.",
-      "evidence": "tested",
-      "sources": []
-    },
-    {
-      "text": "Verification is required before moving to production if the app requests sensitive or restricted scopes, has more than 10 domains, or has a logo uploaded. Uploading a logo alone triggers verification, even for an app using only basic scopes.",
-      "evidence": "tested",
-      "sources": []
-    },
-    {
-      "text": "Sensitive-scope verification typically takes about 10 business days.",
-      "evidence": "docs",
-      "sources": ["https://support.google.com/cloud/answer/9110914"]
-    },
-    {
-      "text": "Restricted scopes (e.g. Gmail, Drive, Fit) require a paid third-party security assessment (CASA) in addition to verification — roughly $500-$4,500 depending on tier, taking 2-6+ weeks, and must be redone annually.",
-      "evidence": "docs",
-      "sources": ["https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification"]
+  "summary": "Google OAuth is fast to set up for testing — no review needed for up to 100 test users. But taking an app with sensitive scopes to production requires Google verification (about 10 business days), and restricted scopes like Gmail additionally require a paid third-party security assessment (CASA) that can take weeks and must be redone annually.",
+  "setupTime": {
+    "value": "30-60 min to a working Testing-mode setup",
+    "evidence": {
+      "level": "hand_checked",
+      "sourceUrl": null,
+      "note": "Measured 42 min total in this test for project setup, Branding, Audience, client creation, fixing 3 errors, and testing two scopes. Tester had prior basic Google OAuth experience, so a first-timer may take longer."
     }
-  ],
-  "requirements": [
+  },
+  "approval": {
+    "paths": [
+      {
+        "name": "Testing mode (Internal or External, up to 100 test users)",
+        "reviewRequired": false,
+        "wait": "None",
+        "notes": "No review is needed in Testing mode, whether Internal or External with up to 100 test users.",
+        "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
+      },
+      {
+        "name": "External Production, sensitive scopes",
+        "reviewRequired": true,
+        "wait": "About 10 business days",
+        "notes": "Required if the app requests sensitive or restricted scopes, has more than 10 domains, or has a logo uploaded — uploading a logo alone triggers verification, even for an app using only basic scopes.",
+        "evidence": {
+          "level": "doc_sourced",
+          "sourceUrl": "https://support.google.com/cloud/answer/9110914",
+          "note": null
+        }
+      },
+      {
+        "name": "External Production, restricted scopes (e.g. Gmail, Drive, Fit)",
+        "reviewRequired": true,
+        "wait": "Verification plus a paid third-party security assessment (CASA), roughly $500-$4,500 depending on tier, 2-6+ weeks, repeated annually",
+        "notes": "In addition to standard verification.",
+        "evidence": {
+          "level": "doc_sourced",
+          "sourceUrl": "https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification",
+          "note": null
+        }
+      }
+    ]
+  },
+  "cost": {
+    "value": "OAuth sign-in itself is free. Standard use of the Gmail API behind it is free within generous per-minute/per-day quotas measured in quota units, not dollars.",
+    "notes": "1,200,000 quota units/minute per project, 6,000 units/minute per user, 80,000,000 units/day. Google has signaled usage beyond quota limits may incur Cloud billing charges later in 2026 — not confirmed whether this is already in effect.",
+    "evidence": {
+      "level": "doc_sourced",
+      "sourceUrl": "https://developers.google.com/workspace/gmail/api/reference/quota",
+      "note": null
+    }
+  },
+  "rateLimits": {
+    "value": "Different Gmail API methods cost different quota units (e.g. drafts.send = 100 units), capped at 1,200,000 units/minute per project and 6,000 units/minute per user.",
+    "evidence": {
+      "level": "doc_sourced",
+      "sourceUrl": "https://developers.google.com/workspace/gmail/api/reference/quota",
+      "note": null
+    }
+  },
+  "prerequisites": [
     {
       "text": "A Google Cloud project.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "text": "An app name and a user support email for Branding — the support email is shown to users on the consent screen.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "text": "A developer contact email.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "text": "For External Testing: a list of test users (up to 100, added by hand) who will be allowed to sign in.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "text": "The Gmail API (or whichever Google API you're calling) must be enabled on the project before it can be used.",
-      "evidence": "docs",
-      "sources": ["https://developers.google.com/workspace/guides/enable-apis"]
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://developers.google.com/workspace/guides/enable-apis",
+        "note": null
+      }
     }
   ],
+  "scopes": {
+    "minimum": [
+      { "scope": "https://www.googleapis.com/auth/gmail.readonly", "why": "Read-only access to Gmail messages — the minimum for an agent that only reads mail." },
+      { "scope": "https://www.googleapis.com/auth/userinfo.email", "why": "Identifies which account connected." }
+    ],
+    "optional": [
+      { "scope": "https://www.googleapis.com/auth/gmail.send", "why": "Needed if the agent sends mail on the user's behalf." },
+      { "scope": "https://www.googleapis.com/auth/gmail.modify", "why": "Needed if the agent labels, archives, or deletes mail." }
+    ],
+    "modes": [],
+    "evidence": { "level": "inferred", "sourceUrl": null, "note": "Standard Gmail API scope names; not independently re-verified against the live scope picker in this test." }
+  },
   "steps": [
     {
       "title": "Create a Google Cloud project",
-      "detail": "Create a new project in the Google Cloud console — this is where the OAuth client and consent screen will live.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "Create a new project in the Google Cloud console — this is where the OAuth client and consent screen will live.",
+      "owner": "both",
+      "agentAssist": "Can create the project via the console once a session is authenticated.",
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "title": "Set up Branding",
-      "detail": "In Google Auth Platform > Branding, set the app name and user support email. Don't upload a logo yet if you're still in Testing — a logo alone triggers the verification requirement.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "In Google Auth Platform > Branding, set the app name and user support email. Don't upload a logo yet if you're still in Testing — a logo alone triggers the verification requirement.",
+      "owner": "agent",
+      "agentAssist": "Can pre-fill the app name and support email.",
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "title": "Choose Audience",
-      "detail": "Pick Internal (your Workspace org only) or External (any Google account). For External in Testing mode, add up to 100 test users by hand under Audience > Test users.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "Pick Internal (your Workspace org only) or External (any Google account). For External in Testing mode, add up to 100 test users by hand under Audience > Test users.",
+      "owner": "human",
+      "agentAssist": "Can pre-fill the test-user list once the human has decided Internal vs. External.",
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "title": "Create the OAuth client",
-      "detail": "Under Clients, create a new OAuth client of type 'Web application'. Add your Authorised JavaScript origins and Authorised redirect URIs — the scheme (http vs https) must match exactly what your app sends.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "Under Clients, create a new OAuth client of type 'Web application'. Add your Authorised JavaScript origins and Authorised redirect URIs — the scheme (http vs https) must match exactly what your app sends.",
+      "owner": "agent",
+      "agentAssist": "Can pre-fill the client type and Composio's redirect URI.",
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "title": "Decide on the 'AI-powered agent' client setting",
-      "detail": "The client page has a 'Use this client for an AI-powered agent' checkbox, off by default. Google warns that changing it may affect how the app works and may not be reversible in the future — treat it as a one-way decision rather than a toggle to experiment with.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "The client page has a 'Use this client for an AI-powered agent' checkbox, off by default. Google warns that changing it may affect how the app works and may not be reversible in the future — treat it as a one-way decision rather than a toggle to experiment with.",
+      "owner": "human",
+      "agentAssist": null,
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "title": "Enable the APIs you need",
-      "detail": "Enable the specific Google API (e.g. Gmail API) on your project under APIs & Services > Library before making calls to it.",
-      "actor": "human",
-      "evidence": "docs",
-      "sources": ["https://developers.google.com/workspace/guides/enable-apis"]
-    },
-    {
-      "title": "Hand off the client ID and secret to Composio",
-      "detail": "Composio manages the authorization flow, token exchange, and refresh once it has these credentials — you don't implement any of that yourself.",
-      "actor": "human",
-      "evidence": "tested",
-      "sources": []
+      "description": "Enable the specific Google API (e.g. Gmail API) on your project under APIs & Services > Library before making calls to it.",
+      "owner": "agent",
+      "agentAssist": "Can find and enable the specific API given the scopes needed.",
+      "evidence": {
+        "level": "doc_sourced",
+        "sourceUrl": "https://developers.google.com/workspace/guides/enable-apis",
+        "note": null
+      }
     }
   ],
   "blockers": [
     {
       "problem": "Error 400: redirect_uri_mismatch",
       "fix": "Make the scheme match exactly between the console (e.g. https://) and the authorization URL (e.g. http://) your app sends. Use 'error details' on the error page to see the exact URI Google received.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "problem": "Error 403: access_denied (\"has not completed the Google verification process\")",
       "fix": "The signing-in account isn't on the test user list. Go to Audience > Test users > Add users.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "problem": "'Ineligible accounts not added' popup when adding a test user",
       "fix": "This popup doesn't explain the cause. Check the test user list first — the account may already be on it (in this test, the list showed the user and sign-in still worked).",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "problem": "Uploading a logo to Branding triggers Google's verification requirement, even if your app only uses basic (non-sensitive) scopes.",
       "fix": "Skip the logo field while you're still testing. Only add one once you're ready to go through verification.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     },
     {
       "problem": "The 'Use this client for an AI-powered agent' checkbox on the OAuth client looks like a minor setting but its effect is unclear and Google says it may not be changeable in the future.",
       "fix": "Enabling it produced no visible change in this test, but don't flip it just to experiment — Google warns the classification may affect how the app works and that a new client may be needed if you later want to change it. Only enable it if you're confident the client is for an AI agent.",
-      "evidence": "tested",
-      "sources": []
+      "evidence": { "level": "hand_checked", "sourceUrl": null, "note": null }
     }
   ],
   "agentCanDo": [
@@ -187,6 +224,7 @@
     "Decide whether to mark the client as an AI-powered agent",
     "Submit for verification and/or the CASA security assessment before going to production with sensitive/restricted scopes"
   ],
+  "composioHandoff": "Paste the client ID and client secret into Composio, with Composio's callback URL registered as an Authorised redirect URI — Composio manages the authorization flow, token exchange, and refresh from there.",
   "openQuestions": [
     "Exact Data access tier shown for gmail.readonly (not added during this test; docs list it as restricted)",
     "Whether the unverified-app warning reappears for gmail.readonly on a repeat sign-in attempt, or only shows once",
@@ -194,6 +232,24 @@
     "Whether 'Make internal' works on a personal Gmail project without a Workspace org",
     "Full list of required Branding fields before publishing",
     "What the consent screen looks like once an app is fully verified"
+  ],
+  "sources": [
+    {
+      "title": "Gmail API quota reference",
+      "url": "https://developers.google.com/workspace/gmail/api/reference/quota"
+    },
+    {
+      "title": "How long does app verification take?",
+      "url": "https://support.google.com/cloud/answer/9110914"
+    },
+    {
+      "title": "Restricted scope verification",
+      "url": "https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification"
+    },
+    {
+      "title": "Enable and disable APIs",
+      "url": "https://developers.google.com/workspace/guides/enable-apis"
+    }
   ],
   "generatedBy": "manual",
   "lastVerified": "2026-10-28"

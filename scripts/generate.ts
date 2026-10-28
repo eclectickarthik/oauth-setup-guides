@@ -10,6 +10,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { generateGuide, slugify } from "../lib/agent";
 import { resolveApp } from "../lib/resolve";
+import { verifyGuide } from "../lib/verifier";
 
 const OUTPUT_DIR = path.join(process.cwd(), "generated");
 
@@ -48,9 +49,19 @@ async function main() {
 
   console.log(`Generating guide for "${resolved.canonical_name}"...\n`);
 
-  const guide = await generateGuide(resolved, (message) => {
+  const drafted = await generateGuide(resolved, (message) => {
     console.log(`  ${message}`);
   });
+
+  console.log(`\nVerifying "${drafted.appName}" against its sources...`);
+  const { guide: verified, changes, unverified } = await verifyGuide(drafted, (message) => {
+    console.log(`  ${message}`);
+  });
+  if (changes.length > 0) {
+    console.log(`Verifier made ${changes.length} correction(s):`);
+    for (const c of changes) console.log(`  - [${c.field}] ${c.reason}`);
+  }
+  const guide = { ...verified, verifierChanges: changes, verifierUnverified: unverified };
 
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   const outputPath = path.join(OUTPUT_DIR, `${guide.slug}.json`);

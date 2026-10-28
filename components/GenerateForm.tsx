@@ -3,21 +3,23 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-type ProgressEntry = { message: string; service?: "tavily" | "gemini" };
+type ProgressEntry = { message: string; service?: "tavily" | "gemini" | "verifier" };
 type ConfirmPrompt = { canonicalName: string; officialDomain: string; rawInput: string };
 type ExistsPrompt = { slug: string; appName: string; generatedOn: string; rawInput: string };
 
 const SERVICE_LABEL: Record<string, string> = {
   tavily: "Tavily",
   gemini: "Gemini",
+  verifier: "Verifier",
 };
 
 const SERVICE_STYLES: Record<string, string> = {
   tavily: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
   gemini: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+  verifier: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
 };
 
-function ServiceBadge({ service }: { service?: "tavily" | "gemini" }) {
+function ServiceBadge({ service }: { service?: "tavily" | "gemini" | "verifier" }) {
   if (!service) return null;
   return (
     <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${SERVICE_STYLES[service]}`}>

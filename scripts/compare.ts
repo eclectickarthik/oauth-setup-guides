@@ -56,7 +56,7 @@ const COMPARISON_SCHEMA = {
 
 const COMPARE_SYSTEM = `You are reviewing an AI agent's auto-generated OAuth setup guide against a hand-checked "answer key" guide for the same provider, written by a human who actually tested or carefully researched the setup process.
 
-Go through every claim-bearing part of the GENERATED guide — summary, difficultyReason, time.setup, time.approvalWait, decision (if present), whenReviewIsNeeded[], requirements[], steps[] (title + detail), blockers[] (problem + fix), agentCanDo[], humanMustDo[], openQuestions[] — and for each distinct claim, compare it against the ANSWER KEY guide and assign exactly one label:
+Go through every claim-bearing part of the GENERATED guide — summary, oauthFit, decision (if present), setupTime, approval.paths[], cost, rateLimits, prerequisites[], scopes (minimum/optional/modes), steps[] (title + description), blockers[] (problem + fix), agentCanDo[], humanMustDo[], composioHandoff, openQuestions[] — and for each distinct claim, compare it against the ANSWER KEY guide and assign exactly one label:
 
 - "correct": the claim matches what the answer key says (doesn't need to be word-for-word, just factually aligned).
 - "wrong": the claim contradicts what the answer key says.

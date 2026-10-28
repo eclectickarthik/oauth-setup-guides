@@ -143,28 +143,54 @@ export function scoreResult(
   return score;
 }
 
-const EVIDENCE_ENUM = ["tested", "docs", "uncertain"];
+const EVIDENCE_LEVEL_ENUM = ["hand_checked", "doc_sourced", "inferred", "uncertain"];
 
-const CLAIM_SCHEMA = {
+// sourceUrl/note are deliberately NOT in "required" here even though
+// lib/schema.ts's EvidenceSchema treats them as always-present-but-
+// nullable — Gemini's JSON schema dialect doesn't reliably support
+// nullable types (no precedent for it elsewhere in this file), so the
+// model is allowed to omit them, and fillEvidenceDefaults() below
+// normalizes any missing/empty value to null before Zod validation. This
+// mirrors the same omit-then-default pattern lib/resolve.ts already uses
+// for developer_portal_url.
+const EVIDENCE_SCHEMA = {
   type: "object",
   properties: {
-    text: { type: "string" },
-    evidence: { type: "string", enum: EVIDENCE_ENUM },
-    sources: { type: "array", items: { type: "string" } },
+    level: { type: "string", enum: EVIDENCE_LEVEL_ENUM },
+    sourceUrl: { type: "string" },
+    note: { type: "string" },
   },
-  required: ["text", "evidence", "sources"],
+  required: ["level"],
+};
+
+const VALUE_WITH_EVIDENCE_SCHEMA = {
+  type: "object",
+  properties: {
+    value: { type: "string" },
+    evidence: EVIDENCE_SCHEMA,
+  },
+  required: ["value", "evidence"],
+};
+
+const SCOPE_ITEM_SCHEMA = {
+  type: "object",
+  properties: {
+    scope: { type: "string" },
+    why: { type: "string" },
+  },
+  required: ["scope", "why"],
 };
 
 const STEP_SCHEMA = {
   type: "object",
   properties: {
     title: { type: "string" },
-    detail: { type: "string" },
-    actor: { type: "string", enum: ["agent", "human"] },
-    evidence: { type: "string", enum: EVIDENCE_ENUM },
-    sources: { type: "array", items: { type: "string" } },
+    description: { type: "string" },
+    owner: { type: "string", enum: ["human", "agent", "both"] },
+    agentAssist: { type: "string" },
+    evidence: EVIDENCE_SCHEMA,
   },
-  required: ["title", "detail", "actor", "evidence", "sources"],
+  required: ["title", "description", "owner", "evidence"],
 };
 
 const BLOCKER_SCHEMA = {
@@ -172,26 +198,50 @@ const BLOCKER_SCHEMA = {
   properties: {
     problem: { type: "string" },
     fix: { type: "string" },
-    evidence: { type: "string", enum: EVIDENCE_ENUM },
-    sources: { type: "array", items: { type: "string" } },
+    evidence: EVIDENCE_SCHEMA,
   },
-  required: ["problem", "fix", "evidence", "sources"],
+  required: ["problem", "fix", "evidence"],
 };
 
 // JSON Schema enforced on the drafting call via response_format. Mirrors
-// lib/schema.ts's GuideSchema exactly — kept hand-written since the Gemini
-// schema dialect only supports a subset of JSON Schema (no minLength, etc).
-// This is the contract with the rest of the app: the UI and the compare
-// script both read against lib/schema.ts, so this must never drift from it.
-const GUIDE_JSON_SCHEMA = {
+// lib/schema.ts's GuideSchema — kept hand-written since the Gemini schema
+// dialect only supports a subset of JSON Schema (no minLength, no
+// nullable, etc). This is the contract with the rest of the app: the UI
+// and the compare script both read against lib/schema.ts, so this must
+// never drift from it.
+// Exported so lib/verifier.ts can embed it in its own response schema
+// (the verifier returns a full corrected Guide, not just a diff) without
+// duplicating this and risking drift between the two.
+export const GUIDE_JSON_SCHEMA = {
   type: "object",
   properties: {
     slug: { type: "string" },
     appName: { type: "string" },
     website: { type: "string" },
     developerPortalUrl: { type: "string" },
-    summary: { type: "string" },
-    warning: { type: "string" },
+    surface: { type: "string" },
+    otherSurfaces: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          whyNot: { type: "string" },
+        },
+        required: ["name", "whyNot"],
+      },
+    },
+    oauthFit: {
+      type: "object",
+      properties: {
+        value: {
+          type: "string",
+          enum: ["standard_oauth", "oauth_with_caveats", "sign_in_only", "no_oauth"],
+        },
+        reason: { type: "string" },
+      },
+      required: ["value", "reason"],
+    },
     decision: {
       type: "object",
       properties: {
@@ -213,34 +263,80 @@ const GUIDE_JSON_SCHEMA = {
       required: ["question", "options", "recommendation"],
     },
     difficulty: { type: "string", enum: ["easy", "medium", "hard", "gated"] },
-    difficultyReason: { type: "string" },
-    time: {
+    summary: { type: "string" },
+    setupTime: VALUE_WITH_EVIDENCE_SCHEMA,
+    approval: {
       type: "object",
       properties: {
-        setup: { type: "string" },
-        approvalWait: { type: "string" },
+        paths: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              reviewRequired: { type: "boolean" },
+              wait: { type: "string" },
+              notes: { type: "string" },
+              evidence: EVIDENCE_SCHEMA,
+            },
+            required: ["name", "reviewRequired", "wait", "notes", "evidence"],
+          },
+        },
+      },
+      required: ["paths"],
+    },
+    cost: {
+      type: "object",
+      properties: {
+        value: { type: "string" },
         notes: { type: "string" },
+        evidence: EVIDENCE_SCHEMA,
       },
-      required: ["setup", "approvalWait"],
+      required: ["value", "notes", "evidence"],
     },
-    accessCost: {
+    rateLimits: VALUE_WITH_EVIDENCE_SCHEMA,
+    prerequisites: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { text: { type: "string" }, evidence: EVIDENCE_SCHEMA },
+        required: ["text", "evidence"],
+      },
+    },
+    scopes: {
       type: "object",
       properties: {
-        tier: { type: "string", enum: ["free", "freemium", "paid"] },
-        pricingModel: { type: "string" },
-        rates: { type: "string" },
-        freeTierLimits: { type: "string" },
-        sources: { type: "array", items: { type: "string" } },
+        minimum: { type: "array", items: SCOPE_ITEM_SCHEMA },
+        optional: { type: "array", items: SCOPE_ITEM_SCHEMA },
+        modes: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              whenToUse: { type: "string" },
+            },
+            required: ["name", "whenToUse"],
+          },
+        },
+        evidence: EVIDENCE_SCHEMA,
       },
-      required: ["tier", "pricingModel", "rates", "freeTierLimits", "sources"],
+      required: ["minimum", "optional", "modes", "evidence"],
     },
-    whenReviewIsNeeded: { type: "array", items: CLAIM_SCHEMA },
-    requirements: { type: "array", items: CLAIM_SCHEMA },
     steps: { type: "array", items: STEP_SCHEMA },
     blockers: { type: "array", items: BLOCKER_SCHEMA },
     agentCanDo: { type: "array", items: { type: "string" } },
     humanMustDo: { type: "array", items: { type: "string" } },
+    composioHandoff: { type: "string" },
     openQuestions: { type: "array", items: { type: "string" } },
+    sources: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { title: { type: "string" }, url: { type: "string" } },
+        required: ["title", "url"],
+      },
+    },
     generatedBy: { type: "string", enum: ["agent"] },
     lastVerified: { type: "string" },
   },
@@ -249,22 +345,52 @@ const GUIDE_JSON_SCHEMA = {
     "appName",
     "website",
     "developerPortalUrl",
-    "summary",
+    "surface",
+    "otherSurfaces",
+    "oauthFit",
     "difficulty",
-    "difficultyReason",
-    "time",
-    "accessCost",
-    "whenReviewIsNeeded",
-    "requirements",
+    "summary",
+    "setupTime",
+    "approval",
+    "cost",
+    "rateLimits",
+    "prerequisites",
+    "scopes",
     "steps",
     "blockers",
     "agentCanDo",
     "humanMustDo",
+    "composioHandoff",
     "openQuestions",
+    "sources",
     "generatedBy",
     "lastVerified",
   ],
 };
+
+// Normalizes every evidence-shaped object's sourceUrl/note from
+// "omitted/empty" (what the model may legitimately produce — see
+// EVIDENCE_SCHEMA's comment above) to the explicit null the schema
+// requires, before Zod validation. Deliberately structural (keys on any
+// object matching this shape) rather than a fixed list of paths, so it
+// doesn't need updating every time a new evidence-bearing field is added.
+export function fillEvidenceDefaults(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(fillEvidenceDefaults);
+  }
+  if (value !== null && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if ("level" in obj) {
+      if (!obj.sourceUrl) obj.sourceUrl = null;
+      if (!obj.note) obj.note = null;
+    }
+    for (const key of Object.keys(obj)) {
+      obj[key] = fillEvidenceDefaults(obj[key]);
+    }
+    if ("agentAssist" in obj && !obj.agentAssist) obj.agentAssist = null;
+  }
+  return value;
+}
 
 // Baseline capabilities every OAuth app registration needs regardless of
 // provider — enforced in code (see ensureAgentCanDo below), not just
@@ -281,53 +407,76 @@ const BASELINE_AGENT_CAN_DO = [
   "Draft the review/verification submission — scope justifications, use-case text, demo instructions",
 ];
 
-const DRAFT_SYSTEM = `You convert extracted OAuth developer-docs pages into a single structured guide for a developer who wants to set up an OAuth app with this provider (e.g. Google, Slack, GitHub) so their users can connect it through Composio.
+const DRAFT_SYSTEM = `You are an OAuth setup researcher for developers building AI agents on Composio.
 
-SCOPE: this guide is about REGISTERING, CONFIGURING, AND GETTING APPROVAL FOR the OAuth app with the provider — not about writing OAuth integration code. Composio handles the actual authorization flow, token exchange, storage, and refresh once the app is registered; a developer using Composio never writes that code themselves. This changes what "steps", "agentCanDo", and "humanMustDo" mean:
-- Never include implementing the authorization flow, building the auth URL, handling the OAuth callback, exchanging a code for a token, or refreshing a token — anywhere, not as a step, not in agentCanDo. That's Composio's job, already built, not something this guide's reader needs to do.
-- Never include "the user authorizes/consents via the consent screen" as a step. That's the END USER connecting their account later, not the developer's one-time setup — it doesn't belong in a setup guide at all.
-- Every step in this guide is something the DEVELOPER (or an agent acting for them) does ONCE, before Composio can manage the integration: registering the app, configuring it, and if needed, getting it approved.
+Given extracted developer-docs pages for a provider (e.g. Google, Slack, GitHub), produce a guide that tells a developer how to create and configure that provider's OAuth app — so THEIR end users can connect accounts — and get it approved for use.
 
-MOST IMPORTANT CHECKS, do these first, before writing anything else:
+CONTEXT
+- Composio handles the OAuth runtime: building auth URLs, callbacks, token exchange, refresh, and storing tokens. Do NOT include any of that as a setup step or an agentCanDo/humanMustDo item, anywhere.
+- The developer's job is: get a provider account, register the OAuth app, configure redirect URIs and scopes, pass any review/verification, then hand the client ID + secret to Composio (the "composioHandoff" field is literally this last step, stated concretely).
+- Never include "the user authorizes/consents via the consent screen" as a step. That's the END USER connecting their account later, not the developer's one-time setup.
 
-1. Target the API a developer would use to let their END USERS connect their own accounts — the authorization_code flow with a consent step. A provider can have multiple products that technically say "OAuth": e.g. an Ads API that uses client_credentials for server-to-server access to the developer's OWN account (no end user involved at all) vs. a "Sign in with X" product that's the real end-user flow. If any source describes the client_credentials grant, server-to-server access, or "your own account/ad account" access with no end-user consent step, that is NOT what this guide is for. If the provider has several OAuth-enabled products, say in the summary which one this guide covers and why, and name the others so the reader knows they exist.
-2. Check the grant type every source actually describes. If EVERY source only documents client_credentials (server-to-server, no end-user consent, no redirect, no consent screen) and NONE describe authorization_code / a user sign-in step, set the "warning" field to one clear sentence stating this is NOT an end-user OAuth flow — still fill out the rest of the guide as best you can from what's available, but add to openQuestions that the real end-user-facing product (if one exists) should be researched separately by name. Leave "warning" unset entirely if the sources do describe a normal end-user authorization_code flow.
-3. Scan the titles and content of every source for comparison language — "differences between X and Y", "X vs Y", "X or Y", multiple named app/client types. If ANY source describes more than one distinct app type or setup path (e.g. GitHub OAuth App vs. GitHub App, Google Internal vs. External), you MUST populate the "decision" field describing that choice. This is the single highest-value thing a guide can get right and the most commonly missed — do not skip it just because the rest of your answer is based on a different source.
-4. Fill "accessCost" from the pricing/changes sources you were given, not from what you already believe about this provider — pricing changes, and a provider that was free last year may not be free now (or vice versa). Set "tier" to free/freemium/paid based on whether calling the API itself (not the OAuth login step) costs money. State the actual pricing model and rough rates in plain terms, and state free-tier limits or exceptions (e.g. "free only for approved public-interest apps," "free up to N requests/month", or "none" if there genuinely are none). If the pricing sources found nothing concrete, pick the tier your sources most support, say plainly in "rates" that exact current pricing could not be fully confirmed, and add a note to openQuestions to verify directly on the provider's site — never state a specific rate you don't have a source for.
+STEP 1: PICK THE RIGHT SURFACE
+Many providers have several APIs (e.g. Apple, Google, Microsoft) that all technically involve "OAuth." Choose the "surface" — the specific product/API — where END USERS grant access to THEIR OWN accounts via a real OAuth consent flow (authorization_code with a redirect and a consent step), not a server-to-server/client_credentials product that only grants the developer access to their own account/ad account with no end user involved. State which surface this guide covers in the "surface" field (e.g. "Sign in with Apple", not just "Apple"), and list every other OAuth-adjacent surface you saw mentioned in the sources in "otherSurfaces" with a one-line reason it wasn't chosen — even if you're confident, so the reader knows what else exists.
 
-Research thoroughly for:
-- How to create the OAuth app / register a client, and whether the provider offers more than one app type. If so, use the "decision" field for it (see the check above).
-- Whether any setting is permanent or irreversible once chosen at creation time (e.g. app type or visibility can't be changed later). Call this out explicitly as a blocker if the docs mention one.
-- Redirect URI rules and scopes. The redirect URI the developer registers is Composio's callback URL, not anything the developer builds — note the rules (format, HTTPS requirement, exact-match vs. wildcard) as something to register correctly, not something to implement.
-- Whether the provider classifies scopes into tiers (e.g. basic / sensitive / restricted, or an equivalent naming). For each tier beyond the most basic one, state what it requires — additional verification, a security assessment, cost, turnaround time, whether it must be renewed periodically — as its own claim. Do not fold this into a generic "review is needed" statement.
-- App/OAuth consent-screen verification and marketplace/app-directory listing review. These are commonly SEPARATE processes with separate requirements and separate timelines for the same provider — never merge them into one claim or one time.approvalWait value. State each one that applies as its own claim.
-- Rate limits, and any partner-program or paid-tier gate.
-- Any setting specifically relevant to AI agents or autonomous/bot clients (e.g. a checkbox or client type like Google's "Use this client for an AI-powered agent"). If the docs mention one, call it out explicitly as its own step or blocker, even if its effect is unclear from the docs.
+STEP 2: CLASSIFY OAUTH FIT (required, in "oauthFit")
+- "standard_oauth": normal authorization_code flow with user consent, no unusual gate.
+- "oauth_with_caveats": a normal user-consent flow exists, but with notable restrictions — partner-program gating, limited self-serve scopes, mandatory review even for basic use, etc.
+- "sign_in_only": OAuth/OIDC exists but only for identity (sign-in) — no delegated access to the user's data.
+- "no_oauth": no user-delegated OAuth exists at all; explain in "reason" what auth the provider actually offers instead (API keys, service accounts, JWTs).
+Give one concrete sentence in "reason". If "no_oauth" or "sign_in_only", still return the full JSON with every field filled as best you can, but keep "steps" short and make "summary" state plainly what a developer can and can't do here.
 
-Structure the steps in two phases, and make the phase obvious from the step title alone:
-1. "Start building now" — whatever gets a developer to a working dev/testing setup with no review: creating the app, configuring scopes/redirect URIs, test-user limits. Prefix these step titles, e.g. "Start building: ...".
-2. "Go live for real users" — whatever is needed only for public/production use: verification, security review, marketplace submission. Prefix these step titles, e.g. "Go live: ...".
-If the provider has no such distinction (review is required even to start testing), don't force a fake split — say so plainly in difficultyReason instead.
+RESEARCH, for the chosen surface:
+- How to create the OAuth app / register a client, and whether the provider offers more than one distinct app type or setup path (e.g. GitHub OAuth App vs. GitHub App, Google Internal vs. External). If so, populate the "decision" field describing that choice — this is the single highest-value thing a guide can get right and the most commonly missed; scan every source for comparison language ("differences between X and Y", "X vs Y") before concluding there's only one path.
+- Whether any setting is permanent or irreversible once chosen at creation time. Call this out as a blocker if the docs mention one.
+- Redirect URI rules. The redirect URI the developer registers is Composio's callback URL, not anything the developer builds — state the rules (format, HTTPS requirement, exact-match vs. wildcard) as something to register correctly.
+- Scopes: separate "minimum for a typical agent integration" ("scopes.minimum") from "optional/advanced" ("scopes.optional"). If the provider has special modes (e.g. acting as the user vs. acting as the app/bot), explain each in "scopes.modes" with when to pick which, one line each.
+- Whether the provider classifies scopes into tiers (basic / sensitive / restricted or equivalent). For each tier beyond the most basic, state what it requires (additional verification, a security assessment, cost, turnaround time, whether it's renewed periodically) in "scopes.evidence"/"approval.paths" as appropriate — never fold this into one vague "review is needed" line.
+- Approval: give a concrete range PER PATH in "approval.paths" (e.g. one path for internal/private use, one for a public listing, one for a verified/restricted tier) — each with its own wait and whether review is required. Never write "varies" with nothing else.
+- Rate limits ("rateLimits"), and any partner-program or paid-tier gate.
+- Prerequisites ("prerequisites"): things to have ready before registration — privacy policy URL, homepage, verified domain, logo specs, business entity, etc.
+- Any setting specifically relevant to AI agents or autonomous/bot clients (e.g. a checkbox or client type like Google's "Use this client for an AI-powered agent"). Call it out explicitly as its own step or blocker if the docs mention one, even if its effect is unclear.
+- Pricing/cost ("cost"): fill from the pricing/changes sources you were given, not from what you already believe about this provider — a provider that was free last year may not be free now. State the actual pricing model and rough rates in plain terms in "value", and note free-tier limits or exceptions in "notes" (or state plainly that exact current pricing couldn't be confirmed and add an openQuestions entry — never state a specific rate you don't have a source for).
 
-Source and evidence rules:
-- Every claim needs a source URL from the "Available sources" list you're given — never invent, guess, or cite a URL that isn't in that list. If nothing in the provided sources supports a claim you'd otherwise want to make, do not state it — put it in openQuestions instead. You never have evidence "tested" — only "docs" or "uncertain".
-- Prefer official sources (the provider's own developer docs, pricing pages, changelogs) over tutorials, SDK wrapper docs, and blogs. If a claim is only supported by a third-party source because no official page covers that point, say so explicitly in the claim text, e.g. "(from a third-party source, not official docs)" — this applies especially to pricing and rate figures, where tutorials and blog posts are often stale.
-- Official docs describe UI navigation (menu paths, button names, page layout) that can go stale between when the doc was written and now. When a step depends on a specific UI path, phrase it so it's clear this is documentation-sourced and the exact path may have moved — don't state it as independently verified current.
-- If you're given a second round of extracted pages specifically targeting review/verification/marketplace/partner-program info (because the first pass didn't find any), use it. If even that turns up nothing, say so explicitly in openQuestions rather than assuming no review is needed.
-- "openQuestions" is only for things genuinely unverifiable from what's available — not a dumping ground for anything inconvenient. Before adding something to openQuestions, check whether your sources already answer it (this applies especially to pricing: if a pricing/changes source describes current rates, state them as a claim — don't punt a resolvable question to openQuestions just because it's easier).
+WRITING RULES
+- Each field appears once. Don't repeat cost, time, or approval info in multiple places (e.g. don't restate pricing inside a step's description).
+- Step titles are short and plain — no prefixes like "Start building:" or "Go live:". The approval-path structure already carries that distinction.
+- Navigation paths must be exact (e.g. "Settings → API → OAuth applications"). If you aren't sure of the exact current path, give your best guess and mark that step's evidence "inferred" — never write "X or Y page".
+- Official docs describe UI navigation that can go stale between when the doc was written and now — reflect that honestly via the evidence level, don't overstate confidence.
+- Blockers are real, specific problems a developer hits (no admin rights, redirect URI mismatch, one-time secret download, domain verification, a required business ID, sensitive-scope review) — each with a concrete fix, not generic advice.
+- "openQuestions" is only for things that would change a developer's decision or timeline, and that are genuinely unverifiable from what's available — not a dumping ground, and not trivia. Check whether your sources already answer something before adding it here.
 
-Other rules:
-- Keep hands-on setup time (time.setup) and approval/review wait time (time.approvalWait) separate — never merge them.
-- Tag every step "agent" or "human" based on who can do THAT PART OF REGISTRATION/CONFIGURATION/APPROVAL (never OAuth code — see SCOPE above):
-  - "agent": finding the exact developer-console URL and current form fields; pre-filling registration values (app name, description, redirect URI, minimum required scopes); drafting the review/verification submission (scope justifications, use-case text, demo instructions/video script); checking prerequisites (privacy policy URL, homepage, verified domain, logo specs); driving the browser through registration up to a login or payment wall, then handing off; drafting an email to the provider's partner/API team when docs are unclear.
-  - "human": creating or owning the account/workspace (admin rights); accepting developer terms, verifying identity or domain, paying if required; submitting for review and waiting; retrieving the client secret and giving it to Composio. Whenever API usage is paid (accessCost.tier is "paid", or "freemium" where a payment method is required), billing/payment is always "human" — an agent cannot enter payment details or accept legal terms on someone's behalf.
-- "agentCanDo" must never be empty — always include at minimum: finding the developer console and current registration fields, pre-filling the registration form, checking submission prerequisites, and drafting the review submission text. Add more if the docs support it (never OAuth-code tasks — see SCOPE above).
-- Only include "decision" if the sources describe more than one distinct setup path (multiple app types, or an audience/environment choice like internal vs. external) — omit it entirely otherwise.
-- "difficulty" is one of easy/medium/hard/gated. Weigh the "go live" phase's requirements, not just "start building" — a provider can look easy until production access turns out to need verification, a paid security assessment, or a partner program.
-- "generatedBy" must be exactly "agent". "lastVerified" must be today's date in ISO format (YYYY-MM-DD).
-- "slug" must be lowercase-kebab-case derived from the app name.`;
+EVIDENCE — every claim-bearing field carries an "evidence" object:
+- "level": you were never hands-on with this provider's UI, so NEVER use "hand_checked" — only "doc_sourced" (a source in "Available sources" states it directly — "sourceUrl" required, must be from that list, never invented), "inferred" (a reasonable conclusion not directly stated — explain why in "note"), or "uncertain" (conflicting or missing info — say what you checked in "note").
+- Prefer official sources (the provider's own developer docs, pricing pages, changelogs) over tutorials, SDK wrapper docs, and blogs. If a claim is only supported by a third-party source because no official page covers that point, say so in "note" — this applies especially to pricing and rate figures, where tutorials and blog posts are often stale.
+- Never write "none", "free", or "no review" for a limit/cost/approval field unless an official source actually says so — otherwise mark it "uncertain" and say what you checked.
+- Populate the top-level "sources" array with every (title, url) pair you actually cited in any evidence.sourceUrl, deduplicated.
 
-export type ProgressService = "tavily" | "gemini";
+AGENT VS HUMAN SPLIT — "agentCanDo" must be tasks that move the SETUP or APPROVAL forward:
+- Finding the exact developer console URL and current form fields.
+- Pre-filling registration values: app name, description, redirect URI, minimum scopes.
+- Drafting review/verification submissions: scope justifications, use-case text, demo video script.
+- Checking prerequisites: privacy policy URL, homepage, logo specs, domain verification.
+- Driving the browser through registration until a login, payment, or identity wall.
+- Drafting an email to the provider's API/partner team when requirements are unclear.
+Never list token handling, callback code, or API calls here. "agentCanDo" must never be empty.
+
+"humanMustDo" must be things only a person can do:
+- Own or create the account/workspace with admin rights.
+- Accept developer terms, verify identity or domain, pay fees.
+- Submit for review and respond to reviewers.
+- Securely store the client secret and hand it to Composio.
+Never list "authorize via consent screen" — that's the end user, not the developer.
+
+STEPS: tag each with "owner" — "human" (requires login, payment, or legal action only a person can take), "agent" (an agent can fully drive this — finding pages, filling forms, drafting text), or "both" (a human must get past a wall — login, payment, identity verification — but an agent can do the rest, e.g. pre-filling the form once logged in). On a "human"/"both" step, use "agentAssist" for a one-line note on exactly what the agent can do there; set it to null on a pure "human" step with nothing agent-assistable (e.g. "accept developer terms"). Whenever API usage is paid, or a "freemium" tier requires a payment method just to use the API, billing/payment is always a "human"-owned step — an agent cannot enter payment details or accept legal terms for someone.
+
+OTHER RULES
+- "difficulty" is one of easy/medium/hard/gated — weigh the hardest approval path's requirements, not just the easiest one; a provider can look easy until production access turns out to need verification, a paid security assessment, or a partner program.
+- Only include "decision" if the sources describe more than one distinct setup path — omit it entirely otherwise.
+- "composioHandoff" is one concrete sentence: what exactly to paste into Composio (client ID, client secret, which redirect URI value) to finish the integration.
+- "generatedBy" must be exactly "agent". "lastVerified" must be today's date in ISO format (YYYY-MM-DD). "slug" must be lowercase-kebab-case derived from the app name.`;
+
+export type ProgressService = "tavily" | "gemini" | "verifier";
 export type ProgressFn = (message: string, service?: ProgressService) => void;
 
 export function slugify(input: string): string {
@@ -636,7 +785,10 @@ export async function generateGuide(
     let lastError = "";
     const tryParse = (raw: string): Guide | null => {
       try {
-        const parsed = JSON.parse(extractJson(raw));
+        const parsed = fillEvidenceDefaults(JSON.parse(extractJson(raw))) as Record<
+          string,
+          unknown
+        >;
         parsed.generatedBy = "agent";
         parsed.lastVerified = new Date().toISOString().slice(0, 10);
         // Always derive the slug from the resolved canonical name, not

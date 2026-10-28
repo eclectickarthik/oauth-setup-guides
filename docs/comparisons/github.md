@@ -1,11 +1,13 @@
 # Comparison: GitHub
 
-The generated guide captures the basics of GitHub OAuth apps and correctly identifies the distinction between OAuth Apps and GitHub Apps, but misses specific setup nuances, blockers, and practical tips found in the answer key.
+The generated guide captures the core flow of creating a GitHub OAuth App, but misses several important details present in the hand-checked guide (such as specific scope default behaviors, optional form checkboxes, and common user pitfalls like confusing homepage URL with callback URL).
 
-## Wrong (1)
+## Wrong (2)
 
-- **[developerPortalUrl]** https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
-  - Developer portal URL should be https://github.com/settings/developers per the answer key.
+- **[scopes.minimum]** read:user is a minimum scope for GitHub OAuth Apps.
+  - Answer key notes that GitHub OAuth Apps actually default to read access on public data with no scope required at all.
+- **[scopes.optional]** offline_access is an optional scope for GitHub OAuth Apps.
+  - Answer key does not list offline_access; GitHub uses an 'Expire user access tokens' setting rather than an offline_access scope to issue refresh tokens.
 
 ## Outdated (0)
 
@@ -15,23 +17,14 @@ _None._
 
 _None._
 
-## Correct (4)
+## Correct (0)
 
-- **[time]** 15 minutes
-  - Aligns reasonably with the answer key's 5-10 min estimate.
-- **[steps]** Navigate to your GitHub account settings, go to Developer Settings > OAuth Apps, and click 'New OAuth App'.
-  - Matches the navigation path in the answer key.
-- **[steps]** Redirect users to https://github.com/login/oauth/authorize with client_id, optional redirect_uri, scopes, and state.
-  - Standard GitHub OAuth behavior aligned with building OAuth apps.
-- **[steps]** POST request to https://github.com/login/oauth/access_token with client_id, client_secret, and temporary code.
-  - Standard GitHub code exchange endpoint.
+_None._
 
-## Missed from the hand-checked guide (7)
+## Missed from the hand-checked guide (5)
 
-- **[accessCost]** Detailed rate limits (5,000 requests/hour for authenticated requests vs 60/hour for unauthenticated).
-- **[requirements]** Specific requirement for a homepage URL and at least one redirect URI (up to 10 allowed).
-- **[steps]** Step to review optional settings like wildcard matching, device flow, and token expiry.
-- **[steps]** Step to generate and securely store the client secret immediately.
-- **[blockers]** Mix-up between Homepage URL and callback URL.
-- **[blockers]** Unexplained optional checkboxes on the form.
-- **[blockers]** Inability to delete the only client secret without generating a second one first.
+- **[decision]** The entire decision section comparing OAuth App vs. GitHub App and their respective use cases/tradeoffs was omitted.
+- **[prerequisites]** Missing the requirement for a homepage URL and the limit of up to 10 redirect URIs per OAuth App.
+- **[steps]** Missing Step 3 covering the review of optional settings (wildcard matching, device flow, token expiry).
+- **[blockers]** Missing blockers regarding the homepage URL vs. callback URL confusion, unverified optional checkboxes, and the inability to delete the only client secret.
+- **[openQuestions]** The entire openQuestions section noting unverified details was omitted.
