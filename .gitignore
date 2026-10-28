@@ -20,6 +20,11 @@
 # generated guides (runtime output of the local GuideStore)
 /data/generated/
 
+# output of `npm run generate` / `npm run compare` (scripts/) — review-only,
+# not part of the app's data; never overwrites data/guides/
+/generated/
+/comparisons/
+
 # production
 /build
 
