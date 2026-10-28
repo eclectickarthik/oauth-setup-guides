@@ -340,7 +340,7 @@ to find the official *domain*.
   for single-product providers and is unreliable for broad, multi-product
   providers unless the input names the specific product (e.g. "Gmail API",
   not "Google").
-- **The Slack, LinkedIn, and X guides are docs-researched, not hands-on
+- **The Slack and LinkedIn guides are docs-researched, not hands-on
   tested** — every claim is marked `evidence: "docs"`, never `"tested"`,
   and `docs/validation.md` says so explicitly. They're weaker than the
   GitHub and Google guides for the same reason the agent's guides are: no
@@ -353,9 +353,10 @@ to find the official *domain*.
   platforms but has no way to recognize a content farm it's never seen. The
   `accessCost` field itself fills in correctly either way (the LLM still
   extracts the right numbers from blog summaries of official pricing), but
-  the sourcing is weaker than it should be — this is why the X library
-  guide was hand-sourced against `docs.x.com` rather than shipped from the
-  raw agent output.
+  the sourcing is weaker than it should be. X isn't part of the shipped
+  library (LinkedIn already covers the "gated" tier), so this was caught by
+  hand-correcting a generated X guide against `docs.x.com` during
+  live-testing of the generation agent, not in a shipped library guide.
 - **No retry/backoff on transient provider errors** (Tavily or Gemini
   5xx/network blips) beyond the one schema-validation retry already built
   in — a mid-run failure surfaces as an error in the UI rather than
