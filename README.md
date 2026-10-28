@@ -14,6 +14,11 @@ Two features:
    researches its developer docs and generates a new guide in real time,
    streamed to the UI, saved and shareable at `/guides/<slug>`.
 
+**Password: `composio`** — the site is behind a soft access gate (not
+real security, just keeps the link from being stumbled into); you'll
+hit `/unlock` on first visit and need this to get past it, both locally
+and on the deployed link.
+
 ## Setup
 
 ```bash
@@ -22,7 +27,8 @@ cp .env.example .env.local   # fill in the keys below
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) and enter `composio`
+when prompted.
 
 ## Deploy
 
