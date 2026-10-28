@@ -1,6 +1,6 @@
 # OAuth Setup Guides
 
-**Live:** https://eclectickathik-composio-assignment.vercel.app (password `composio`)
+**Live:** https://composio-assignment-1234.vercel.app (password `composio`)
 **Source:** https://github.com/eclectickarthik/oauth-setup-guides
 
 A web app that helps a developer figure out how to set up a provider OAuth
