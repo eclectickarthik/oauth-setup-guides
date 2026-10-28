@@ -53,7 +53,7 @@ Also check the guide's structure, not just individual claims:
 - "oauthFit" must be correct for what the pages actually describe — an API-key-only or service-account-only provider must never be "standard_oauth" or "oauth_with_caveats".
 - "agentCanDo" must contain no token handling, callback code, or API-call implementation tasks — if it does, remove those entries (Composio handles that, not the guide's reader).
 - "humanMustDo" must contain no end-user consent/authorization step ("authorize via consent screen" or equivalent) — if present, remove it.
-- No field's information should be substantively repeated elsewhere in the guide (e.g. cost restated inside a step description) — if it is, trim the duplicate.
+- No field's information should be substantively repeated elsewhere in the guide (e.g. cost restated inside a step description) — if it is, trim the duplicate FROM THE OTHER FIELD, never from "composioHandoff" itself. "composioHandoff" always keeps the literal redirect URI (https://backend.composio.dev/api/v3/toolkits/auth/callback) even if a step description also mentions it — if you see that URL duplicated, remove it from the step's "description", not from "composioHandoff".
 
 Record every correction you make in "changes": one entry per field you changed, with the field's name/path, what it said before, what it says now, and why. Do not add new facts without a source among the fetched pages — prefer downgrading to "uncertain" over a confident guess you can't back up. List anything you still couldn't verify (checked a source and it didn't resolve the question, or no page covered it at all) in "unverified".
 
