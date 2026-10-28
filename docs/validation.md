@@ -162,9 +162,56 @@ in `data/guides/slack.json` is marked `evidence: "docs"`, never `"tested"`.
 This guide is weaker than GitHub's and Google's precisely because it's
 docs-only: no firsthand account of what the actual OAuth app creation form
 looks like, what errors a developer hits, or whether the documented steps
-match the current UI. It's included to complete the four-guide difficulty
-spread (easy/medium/hard/gated) from `CLAUDE.md`, not as a claim that
-docs-research alone is equivalent to testing.
+match the current UI. It's included for the "medium" rung of the four-guide
+difficulty spread from `CLAUDE.md`, not as a claim that docs-research alone
+is equivalent to testing.
+
+## LinkedIn
+
+Researched 2026-10-28 from Microsoft's official LinkedIn API docs
+(learn.microsoft.com/en-us/linkedin) only — not hands-on tested. Every
+claim in `data/guides/linkedin.json` is marked `evidence: "docs"`.
+
+**Confirmed from docs**
+
+- Only three scopes are self-serve with no approval: `profile` and `email`
+  (Sign In with LinkedIn using OpenID Connect) and `w_member_social`
+  (Share on LinkedIn) — matches the "gated" hypothesis's easy sliver.
+- Marketing (Advertising API), Sales (Sales Navigator / SNAP), and Talent
+  Solutions each require applying to and being approved by their own
+  separate partner program.
+- Compliance permissions are listed for reference only — access is closed
+  and cannot be requested at all, regardless of partner status.
+- Redirect URLs must be absolute HTTPS with no `#` fragment; query
+  parameters in the request are ignored when matching against the
+  registered URL.
+- Requesting a new scope later invalidates every previously issued token,
+  not just new ones — everyone has to re-authenticate.
+
+**Corrected**
+
+- Nothing to correct against — this is a new guide, not a revision.
+
+**Couldn't verify — deliberately left as open questions rather than
+guessed**
+
+- No review timeline is published for any of the three partner programs
+  anywhere on the official pages reviewed. (Several third-party
+  aggregator blogs claim "weeks or months," but that figure doesn't trace
+  back to an official LinkedIn/Microsoft source, so it was left out of the
+  guide entirely rather than cited as fact.)
+- Exact application requirements per partner program (e.g. whether a
+  privacy policy or product demo must be submitted) aren't detailed on
+  the official pages reviewed.
+- Whether a non-partner app can ever gain Sales Navigator or Talent
+  access outside the formal partner programs.
+
+This is the clearest example in this project of the "never guess times or
+requirements" rule in `CLAUDE.md` actually mattering: several SEO
+aggregator sites confidently state a review timeline for LinkedIn's
+partner programs, and it would have been easy to cite one. None of them
+trace back to an official source, so the guide says "no timeline is
+published" instead of repeating an unverified number.
 
 ## Agent-Generated vs. Manual
 

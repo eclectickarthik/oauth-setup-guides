@@ -1,0 +1,141 @@
+{
+  "slug": "linkedin",
+  "appName": "LinkedIn",
+  "website": "https://www.linkedin.com",
+  "developerPortalUrl": "https://www.linkedin.com/developers/apps",
+  "summary": "LinkedIn only self-serves three scopes: basic sign-in and posting on a member's behalf. Everything else — ad data, Sales Navigator, recruiting integrations — is closed behind a separate partner-program application per product line, each requiring LinkedIn's approval.",
+  "decision": {
+    "question": "Do you only need basic sign-in/sharing, or deeper LinkedIn data (ads, sales, talent)?",
+    "options": [
+      {
+        "name": "Open permissions (self-serve)",
+        "pickWhen": [
+          "You only need Sign In with LinkedIn (profile, email)",
+          "You only need to post/comment/like on a member's behalf (Share on LinkedIn)"
+        ],
+        "tradeoff": "Instant, no approval — but limited to basic auth and posting. No access to connections, feed data, company data, ads, or sales data."
+      },
+      {
+        "name": "Partner program (Marketing / Sales Navigator / Talent)",
+        "pickWhen": [
+          "You need Advertising API data",
+          "You need Sales Navigator Application Platform (SNAP) access",
+          "You need a Talent Solutions integration (recruiting, job posting)"
+        ],
+        "tradeoff": "Requires applying to a separate partner program per product line — LinkedIn doesn't publish a review timeline, and each program has its own approval process."
+      }
+    ],
+    "recommendation": "If the integration only needs to sign users in or post on their behalf, stick to the open permissions — it's the only path that doesn't require an approval process."
+  },
+  "difficulty": "gated",
+  "difficultyReason": "Only three scopes are self-serve (profile, email, w_member_social). Every other product line — Marketing/Advertising, Sales Navigator, Talent Solutions — is closed behind a separate partner-program application, and the Compliance product is closed entirely (not requestable at all).",
+  "time": {
+    "setup": "15-20 min",
+    "approvalWait": "None for Open Permissions (Sign In with LinkedIn, Share on LinkedIn). For Marketing/Advertising, Sales Navigator, or Talent: requires applying to a separate partner program per product line — no review timeline is published.",
+    "notes": "Official docs don't state a hands-on setup time for the open-permissions path; the estimate above is based on step count, not a documented figure."
+  },
+  "whenReviewIsNeeded": [
+    {
+      "text": "Most permissions and partner programs require explicit approval from LinkedIn. Open Permissions (profile, email, w_member_social) are the only ones available to all developers without approval.",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access"]
+    },
+    {
+      "text": "Marketing (Advertising API), Sales (SNAP), and Talent integrations each require applying to and being approved by their own separate partner program.",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access"]
+    },
+    {
+      "text": "Compliance permissions (r_compliance, w_compliance) are listed for reference only — access is closed and cannot be requested at all.",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access"]
+    }
+  ],
+  "requirements": [
+    {
+      "text": "A LinkedIn account and an app created in the Developer Portal.",
+      "evidence": "docs",
+      "sources": ["https://www.linkedin.com/developers/apps"]
+    },
+    {
+      "text": "An absolute HTTPS redirect URL to register under the app's Auth tab.",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow"]
+    }
+  ],
+  "steps": [
+    {
+      "title": "Create a Developer Portal app",
+      "detail": "Go to linkedin.com/developers/apps and create a new application.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://www.linkedin.com/developers/apps"]
+    },
+    {
+      "title": "Add an Open Permissions product",
+      "detail": "Under the app's Products tab, add 'Sign In with LinkedIn using OpenID Connect' (for the profile/email scopes) and/or 'Share on LinkedIn' (for the w_member_social scope). Both are self-serve — no approval needed.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access"]
+    },
+    {
+      "title": "Configure the redirect URL",
+      "detail": "Under the Auth tab, add an absolute HTTPS redirect URL (e.g. https://yourapp.com/auth/linkedin/callback). URLs with a # fragment are invalid; query parameters are ignored for matching.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow"]
+    },
+    {
+      "title": "Implement the 3-legged OAuth flow",
+      "detail": "Redirect the user to /oauth/v2/authorization with response_type=code, client_id, redirect_uri, scope, and state. Exchange the returned code (30-minute lifespan) for an access token via a POST to /oauth/v2/accessToken.",
+      "actor": "agent",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow"]
+    },
+    {
+      "title": "Apply for partner-program products if more access is needed",
+      "detail": "For Marketing/Advertising, Sales Navigator, or Talent Solutions data, apply separately for each product line under the Products tab — each requires LinkedIn's approval.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access"]
+    }
+  ],
+  "blockers": [
+    {
+      "problem": "\"Redirect_uri doesn't match\" (401) when requesting authorization.",
+      "fix": "The redirect URI sent in the request must exactly match the one registered under the Auth tab — it must be absolute HTTPS with no # fragment.",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow"]
+    },
+    {
+      "problem": "Access tokens stop silently refreshing and users get sent through full re-authorization unexpectedly.",
+      "fix": "Programmatic refresh tokens are only available to a limited set of approved partners. For everyone else, 'refreshing' works by silently re-running the auth flow while the member is still logged into linkedin.com with a non-expired token — if either condition isn't met, they go through the full consent screen again.",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow"]
+    },
+    {
+      "problem": "All previously issued tokens stop working after a scope change.",
+      "fix": "If the app's requested scopes change, every token issued under the old scope set is invalidated — all users must re-authenticate, not just new ones.",
+      "evidence": "docs",
+      "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow"]
+    }
+  ],
+  "agentCanDo": [
+    "Build the authorization URL with the right scopes",
+    "Implement the callback handler and code-for-token exchange",
+    "Call LinkedIn API endpoints using the returned token"
+  ],
+  "humanMustDo": [
+    "Create the app in the LinkedIn Developer Portal",
+    "Add Open Permissions products, or apply for partner programs, under the Products tab",
+    "Configure the redirect URL under the Auth tab",
+    "Apply separately to each partner program (Marketing/Sales/Talent) if deeper access is needed"
+  ],
+  "openQuestions": [
+    "LinkedIn doesn't publish a review timeline for partner-program applications (Marketing/Advertising, Sales Navigator, Talent) on the pages reviewed — budget for an unpredictable wait.",
+    "Exact application requirements per partner program (e.g. whether a privacy policy or product demo must be submitted) aren't detailed on the official pages reviewed.",
+    "Whether a non-partner app can ever gain Sales Navigator or Talent access outside the formal partner programs."
+  ],
+  "generatedBy": "manual",
+  "lastVerified": "2026-10-28"
+}

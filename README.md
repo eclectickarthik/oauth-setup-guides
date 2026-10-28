@@ -8,7 +8,8 @@ tokens, or create OAuth apps for anyone — it produces guides.
 Two features:
 
 1. **Library** — hand-checked guides for GitHub (easy), Slack (medium),
-   Google (hard), spanning the difficulty range on purpose.
+   Google (hard), LinkedIn (gated) — spanning the full difficulty range on
+   purpose.
 2. **Live generation** — type any app name or website, and an agent
    researches its developer docs and generates a new guide in real time,
    streamed to the UI, saved and shareable at `/guides/<slug>`.
@@ -122,11 +123,12 @@ predictable and keeps the whole run to roughly 20-40 seconds.
   for single-product providers and is unreliable for broad, multi-product
   providers unless the input names the specific product (e.g. "Gmail API",
   not "Google").
-- **The Slack guide is docs-researched, not hands-on tested** — every claim
-  is marked `evidence: "docs"`, never `"tested"`, and `docs/validation.md`
-  says so explicitly. It's weaker than the GitHub and Google guides for
-  the same reason the agent's guides are: no firsthand account of what the
-  actual UI looks like or what breaks in practice.
+- **The Slack and LinkedIn guides are docs-researched, not hands-on
+  tested** — every claim is marked `evidence: "docs"`, never `"tested"`,
+  and `docs/validation.md` says so explicitly. They're weaker than the
+  GitHub and Google guides for the same reason the agent's guides are: no
+  firsthand account of what the actual UI looks like or what breaks in
+  practice.
 - **No retry/backoff on transient provider errors** (Tavily or Gemini
   5xx/network blips) beyond the one schema-validation retry already built
   in — a mid-run failure surfaces as an error in the UI rather than
