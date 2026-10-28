@@ -10,9 +10,12 @@ tokens, or create OAuth apps for anyone — it produces guides.
 
 Two features:
 
-1. **Library** — hand-checked guides for GitHub (easy), Slack (medium),
-   Google (hard), LinkedIn (gated) — spanning the full difficulty range on
-   purpose.
+1. **Library** — guides for GitHub (easy), Slack (medium), Google (hard),
+   LinkedIn (gated) — spanning the full difficulty range on purpose.
+   GitHub and Google are hand-checked (`evidence: "tested"` on the claims
+   that were actually verified against the real provider UI); Slack and
+   LinkedIn are docs-researched, not hands-on tested — see
+   `docs/validation.md` and each guide page's footer label.
 2. **Live generation** — type any app name or website, and an agent
    researches its developer docs and generates a new guide in real time,
    streamed to the UI, saved and shareable at `/guides/<slug>`.

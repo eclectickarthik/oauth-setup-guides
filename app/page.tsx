@@ -17,8 +17,8 @@ export default function Home() {
         <p className="mx-auto mt-6 max-w-xl text-zinc-600 dark:text-zinc-400">
           Find out how hard it is to set up and get approved for an OAuth app
           with a provider — before you start. Hand-checked guides for
-          GitHub, Slack, Google, and LinkedIn, plus a live agent that
-          researches and generates a new guide for any app in real time.
+          GitHub and Google, plus a live agent that researches and
+          generates a new guide for any app in real time.
         </p>
 
         <div className="mt-10 flex justify-center">

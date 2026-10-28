@@ -27,6 +27,12 @@ export default function SiteHeader() {
         <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
           OAuth Setup Guides
         </span>
+        <Link
+          href="/compare"
+          className="ml-auto text-sm text-zinc-500 underline-offset-2 hover:text-black hover:underline dark:text-zinc-500 dark:hover:text-zinc-50"
+        >
+          Agent vs. hand-checked
+        </Link>
       </div>
     </header>
   );

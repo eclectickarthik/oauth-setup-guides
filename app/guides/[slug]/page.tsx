@@ -42,6 +42,23 @@ export default async function GuidePage({
 
   const wasCorrected = from && from.trim().toLowerCase() !== guide.appName.toLowerCase();
 
+  // "manual" means a human wrote the file, not that every claim was
+  // hands-on verified — several library guides are manually authored but
+  // entirely docs-researched (evidence: "docs"), never actually tested
+  // against the provider's real UI. Only claim "Hand-checked" when at
+  // least one claim in the guide is marked "tested".
+  const hasTestedEvidence = [
+    ...guide.steps,
+    ...guide.requirements,
+    ...guide.blockers,
+  ].some((claim) => claim.evidence === "tested");
+  const provenanceLabel =
+    guide.generatedBy === "manual"
+      ? hasTestedEvidence
+        ? `Hand-checked · last verified ${guide.lastVerified}`
+        : `Docs-researched, not hands-on tested · last verified ${guide.lastVerified}`
+      : `Agent-generated · generated on ${guide.lastVerified}`;
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <main className="mx-auto max-w-3xl px-6 py-16">
@@ -299,8 +316,7 @@ export default async function GuidePage({
         )}
 
         <p className="mt-10 text-xs text-zinc-400 dark:text-zinc-600">
-          {guide.generatedBy === "manual" ? "Hand-checked" : "Agent-generated"} · last
-          verified {guide.lastVerified}
+          {provenanceLabel}
         </p>
       </main>
     </div>
