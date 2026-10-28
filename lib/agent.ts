@@ -7,6 +7,10 @@ const MODEL = process.env.LLM_MODEL || "claude-opus-4-8";
 const SEARCH_BUDGET = 6;
 const FETCH_BUDGET = 6;
 
+// Caps how much of a single fetched page enters the conversation — without this,
+// one large docs page gets resent in full on every subsequent turn and dominates cost.
+const FETCH_MAX_CONTENT_TOKENS = 4000;
+
 const GUIDE_SHAPE = `{
   slug: string;                        // lowercase-kebab-case
   appName: string;
@@ -63,11 +67,16 @@ async function runAgentOnce(
 ): Promise<{ text: string; finalMessage: Anthropic.Message }> {
   const stream = client.messages.stream({
     model: MODEL,
-    max_tokens: 8000,
+    max_tokens: 4000,
     system: SYSTEM_PROMPT,
     tools: [
       { type: "web_search_20260209", name: "web_search", max_uses: SEARCH_BUDGET },
-      { type: "web_fetch_20260209", name: "web_fetch", max_uses: FETCH_BUDGET },
+      {
+        type: "web_fetch_20260209",
+        name: "web_fetch",
+        max_uses: FETCH_BUDGET,
+        max_content_tokens: FETCH_MAX_CONTENT_TOKENS,
+      },
     ],
     messages,
   });
