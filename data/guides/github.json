@@ -89,11 +89,11 @@
       "sources": []
     },
     {
-      "title": "Implement the authorization flow",
-      "detail": "Redirect users to GitHub's authorize endpoint with your client ID and requested scopes, then exchange the returned code for an access token.",
-      "actor": "agent",
-      "evidence": "docs",
-      "sources": ["https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps"]
+      "title": "Hand off the client ID and secret to Composio",
+      "detail": "Composio manages the authorization flow, token exchange, and refresh once it has these credentials — you don't implement any of that yourself.",
+      "actor": "human",
+      "evidence": "tested",
+      "sources": []
     }
   ],
   "blockers": [
@@ -123,9 +123,9 @@
     }
   ],
   "agentCanDo": [
-    "Draft the authorization URL and scope list",
-    "Implement the code-for-token exchange",
-    "Write the callback handler"
+    "Find the New OAuth App form and its current fields",
+    "Pre-fill the app name, homepage URL, and redirect URI",
+    "Check the redirect URI is well-formed before submission"
   ],
   "humanMustDo": [
     "Log into GitHub and register the OAuth App (or GitHub App)",

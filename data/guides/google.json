@@ -135,11 +135,11 @@
       "sources": ["https://developers.google.com/workspace/guides/enable-apis"]
     },
     {
-      "title": "Implement the authorization flow",
-      "detail": "Redirect users to Google's OAuth 2.0 endpoint with your client ID and requested scopes, then exchange the returned code for access and refresh tokens.",
-      "actor": "agent",
-      "evidence": "docs",
-      "sources": ["https://developers.google.com/identity/protocols/oauth2/web-server"]
+      "title": "Hand off the client ID and secret to Composio",
+      "detail": "Composio manages the authorization flow, token exchange, and refresh once it has these credentials — you don't implement any of that yourself.",
+      "actor": "human",
+      "evidence": "tested",
+      "sources": []
     }
   ],
   "blockers": [
@@ -175,9 +175,10 @@
     }
   ],
   "agentCanDo": [
-    "Build the authorization URL with the right scopes",
-    "Implement the code-for-token exchange and token refresh",
-    "Write the callback handler"
+    "Find the Google Auth Platform Branding/Audience/Clients pages and their current fields",
+    "Pre-fill the app name, support email, and redirect URIs",
+    "Check prerequisites before verification — logo specs, homepage, privacy policy URL",
+    "Draft the verification submission — scope justifications and use-case explanation for the reviewer"
   ],
   "humanMustDo": [
     "Create the Google Cloud project and complete Branding",

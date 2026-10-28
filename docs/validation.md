@@ -241,11 +241,16 @@ under `data/generated/` (gitignored) as `github-generated.json` and
   agent version. The two Tavily searches ("GitHub OAuth app setup developer
   docs" / "GitHub app review verification") didn't surface a GitHub Apps
   page in the top 4 extracted results.
-- `agentCanDo` and `blockers` are both empty in the agent's guide. The
-  extracted pages covered app *registration* but not the authorization-flow
-  implementation page, so the model had nothing to draw an "agent can
-  implement the token exchange" step from, and no firsthand friction to
-  report as blockers (homepage-vs-redirect-URI confusion, the
+- `agentCanDo` and `blockers` are both empty in the agent's guide. *(Note:
+  `agentCanDo` at the time of this test meant "write the OAuth integration
+  code" — implementing the auth URL, callback, and token exchange — which
+  was later corrected to mean registration/review tasks instead, since
+  Composio manages the actual token exchange; see the README's "What I
+  learned / corrected" entry. The underlying observation stands either
+  way: the extracted pages covered app *registration* only, nothing about
+  the authorization flow, so the model had no page to draw that step from
+  under the original definition.)* No firsthand friction was reported as
+  blockers either (homepage-vs-redirect-URI confusion, the
   can't-delete-your-only-secret rule, etc. — all things the manual test
   caught that no doc page states outright).
 - The agent flagged a specific rate limit ("10 tokens per user/application/

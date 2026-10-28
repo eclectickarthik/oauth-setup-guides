@@ -93,9 +93,9 @@
       "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow"]
     },
     {
-      "title": "Implement the 3-legged OAuth flow",
-      "detail": "Redirect the user to /oauth/v2/authorization with response_type=code, client_id, redirect_uri, scope, and state. Exchange the returned code (30-minute lifespan) for an access token via a POST to /oauth/v2/accessToken.",
-      "actor": "agent",
+      "title": "Hand off the client ID and secret to Composio",
+      "detail": "Composio manages the authorization flow, token exchange, and refresh once it has these credentials — you don't implement any of that yourself.",
+      "actor": "human",
       "evidence": "docs",
       "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow"]
     },
@@ -128,9 +128,9 @@
     }
   ],
   "agentCanDo": [
-    "Build the authorization URL with the right scopes",
-    "Implement the callback handler and code-for-token exchange",
-    "Call LinkedIn API endpoints using the returned token"
+    "Find the Developer Portal app-creation form and its current fields",
+    "Pre-fill the app name, redirect URL, and Open Permissions products to add",
+    "Draft the partner-program application text — use case, requested scopes, and justification — for Marketing, Sales Navigator, or Talent access"
   ],
   "humanMustDo": [
     "Create the app in the LinkedIn Developer Portal",

@@ -266,19 +266,27 @@ const GUIDE_JSON_SCHEMA = {
   ],
 };
 
-// Baseline capabilities every OAuth integration needs regardless of
+// Baseline capabilities every OAuth app registration needs regardless of
 // provider — enforced in code (see ensureAgentCanDo below), not just
-// prompted, because an empty agentCanDo array was observed in practice
-// when the extracted pages only covered app registration, not the
-// authorization-flow implementation.
+// prompted, because an empty agentCanDo array was observed in practice.
+// Scoped to the SETUP process (finding the console, filling the
+// registration form, drafting the review submission), not to writing
+// OAuth code: this guide is for a developer using Composio, which manages
+// the actual token exchange/storage/refresh — an agent implementing that
+// itself would be redundant work the guide shouldn't be asking for.
 const BASELINE_AGENT_CAN_DO = [
-  "Build the authorization URL",
-  "Implement the callback handler",
-  "Exchange the authorization code for an access token",
-  "Refresh the access token when it expires",
+  "Find the developer console / app registration page and its current required fields",
+  "Pre-fill the app registration form — name, description, redirect URI, minimum required scopes",
+  "Check prerequisites before submission — privacy policy URL, homepage, verified domain, logo specs",
+  "Draft the review/verification submission — scope justifications, use-case text, demo instructions",
 ];
 
-const DRAFT_SYSTEM = `You convert extracted OAuth developer-docs pages into a single structured guide for a developer who wants to set up an OAuth app with this provider (e.g. Google, Slack, GitHub) so an AI agent's users can connect it.
+const DRAFT_SYSTEM = `You convert extracted OAuth developer-docs pages into a single structured guide for a developer who wants to set up an OAuth app with this provider (e.g. Google, Slack, GitHub) so their users can connect it through Composio.
+
+SCOPE: this guide is about REGISTERING, CONFIGURING, AND GETTING APPROVAL FOR the OAuth app with the provider — not about writing OAuth integration code. Composio handles the actual authorization flow, token exchange, storage, and refresh once the app is registered; a developer using Composio never writes that code themselves. This changes what "steps", "agentCanDo", and "humanMustDo" mean:
+- Never include implementing the authorization flow, building the auth URL, handling the OAuth callback, exchanging a code for a token, or refreshing a token — anywhere, not as a step, not in agentCanDo. That's Composio's job, already built, not something this guide's reader needs to do.
+- Never include "the user authorizes/consents via the consent screen" as a step. That's the END USER connecting their account later, not the developer's one-time setup — it doesn't belong in a setup guide at all.
+- Every step in this guide is something the DEVELOPER (or an agent acting for them) does ONCE, before Composio can manage the integration: registering the app, configuring it, and if needed, getting it approved.
 
 MOST IMPORTANT CHECKS, do these first, before writing anything else:
 
@@ -290,7 +298,7 @@ MOST IMPORTANT CHECKS, do these first, before writing anything else:
 Research thoroughly for:
 - How to create the OAuth app / register a client, and whether the provider offers more than one app type. If so, use the "decision" field for it (see the check above).
 - Whether any setting is permanent or irreversible once chosen at creation time (e.g. app type or visibility can't be changed later). Call this out explicitly as a blocker if the docs mention one.
-- Redirect URI rules and scopes.
+- Redirect URI rules and scopes. The redirect URI the developer registers is Composio's callback URL, not anything the developer builds — note the rules (format, HTTPS requirement, exact-match vs. wildcard) as something to register correctly, not something to implement.
 - Whether the provider classifies scopes into tiers (e.g. basic / sensitive / restricted, or an equivalent naming). For each tier beyond the most basic one, state what it requires — additional verification, a security assessment, cost, turnaround time, whether it must be renewed periodically — as its own claim. Do not fold this into a generic "review is needed" statement.
 - App/OAuth consent-screen verification and marketplace/app-directory listing review. These are commonly SEPARATE processes with separate requirements and separate timelines for the same provider — never merge them into one claim or one time.approvalWait value. State each one that applies as its own claim.
 - Rate limits, and any partner-program or paid-tier gate.
@@ -310,8 +318,10 @@ Source and evidence rules:
 
 Other rules:
 - Keep hands-on setup time (time.setup) and approval/review wait time (time.approvalWait) separate — never merge them.
-- Tag every step "agent" (an AI coding agent could do this) or "human" (requires login, payment, legal action, or submitting for review). Whenever API usage is paid (accessCost.tier is "paid", or "freemium" where the OAuth-app-holder needs to add a payment method to use the API at all), setting up billing / adding a payment method / buying credits is always a "human" step — an agent cannot enter payment details.
-- "agentCanDo" must never be empty — always include at minimum: building the authorization URL, implementing the callback handler, exchanging the code for a token, and refreshing the token. Add more if the docs support it.
+- Tag every step "agent" or "human" based on who can do THAT PART OF REGISTRATION/CONFIGURATION/APPROVAL (never OAuth code — see SCOPE above):
+  - "agent": finding the exact developer-console URL and current form fields; pre-filling registration values (app name, description, redirect URI, minimum required scopes); drafting the review/verification submission (scope justifications, use-case text, demo instructions/video script); checking prerequisites (privacy policy URL, homepage, verified domain, logo specs); driving the browser through registration up to a login or payment wall, then handing off; drafting an email to the provider's partner/API team when docs are unclear.
+  - "human": creating or owning the account/workspace (admin rights); accepting developer terms, verifying identity or domain, paying if required; submitting for review and waiting; retrieving the client secret and giving it to Composio. Whenever API usage is paid (accessCost.tier is "paid", or "freemium" where a payment method is required), billing/payment is always "human" — an agent cannot enter payment details or accept legal terms on someone's behalf.
+- "agentCanDo" must never be empty — always include at minimum: finding the developer console and current registration fields, pre-filling the registration form, checking submission prerequisites, and drafting the review submission text. Add more if the docs support it (never OAuth-code tasks — see SCOPE above).
 - Only include "decision" if the sources describe more than one distinct setup path (multiple app types, or an audience/environment choice like internal vs. external) — omit it entirely otherwise.
 - "difficulty" is one of easy/medium/hard/gated. Weigh the "go live" phase's requirements, not just "start building" — a provider can look easy until production access turns out to need verification, a paid security assessment, or a partner program.
 - "generatedBy" must be exactly "agent". "lastVerified" must be today's date in ISO format (YYYY-MM-DD).

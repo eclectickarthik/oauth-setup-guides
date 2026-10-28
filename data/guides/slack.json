@@ -91,9 +91,9 @@
       "sources": ["https://api.slack.com/apps"]
     },
     {
-      "title": "Implement the OAuth redirect and token exchange",
-      "detail": "Redirect users to Slack's authorize endpoint with the client ID and scopes, then exchange the returned code (valid for 10 minutes) for an access token via oauth.v2.access.",
-      "actor": "agent",
+      "title": "Hand off the client ID and secret to Composio",
+      "detail": "Composio manages the authorization flow, token exchange, and refresh once it has these credentials — you don't implement any of that yourself.",
+      "actor": "human",
       "evidence": "docs",
       "sources": ["https://docs.slack.dev/authentication/installing-with-oauth"]
     }
@@ -119,9 +119,10 @@
     }
   ],
   "agentCanDo": [
-    "Build the authorization URL with the right scopes",
-    "Implement the callback handler and code-for-token exchange",
-    "Call Slack Web API methods using the returned token"
+    "Find the app-creation form and current OAuth & Permissions fields",
+    "Pre-fill the app name, scopes, and redirect URI",
+    "Check Marketplace prerequisites — install count, uninstall testing — before submission",
+    "Draft the Marketplace review submission text"
   ],
   "humanMustDo": [
     "Create the app and configure OAuth scopes and redirect URI in the Slack dashboard",

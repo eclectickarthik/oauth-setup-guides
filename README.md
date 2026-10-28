@@ -334,6 +334,47 @@ company's real canonical docs live on a different domain than the
 company's own" is a genuinely hard case for a resolve step whose job is
 to find the official *domain*.
 
+**`agentCanDo` was scoped to the wrong job.** Every generated (and
+originally every hand-checked) guide's `agentCanDo` listed things like
+"build the authorization URL," "implement the callback handler," and
+"exchange the code for a token" — and every guide's step list ended with
+an agent-tagged "Implement the authorization flow" step. That's wrong
+for this product: a developer using Composio never writes that code —
+Composio manages the actual authorization flow, token exchange, storage,
+and refresh once an app is registered. Telling the reader an agent will
+"implement the callback handler" describes work that's already done and
+not theirs to do, and listing "authorize the app via the consent screen"
+as a setup step (present in earlier agent output) conflates the
+developer's one-time registration with the end user's later connection
+— two different people, two different moments.
+
+Fixed in both places this showed up:
+
+1. `lib/agent.ts`'s `DRAFT_SYSTEM` prompt now states the scope explicitly
+   — this guide covers registering, configuring, and getting approval
+   for the OAuth app, never writing OAuth code — and gives the model the
+   actual categories: `agentCanDo` is for finding the developer console
+   and current form fields, pre-filling registration values, checking
+   submission prerequisites (privacy policy, logo specs, verified
+   domain), and drafting review/verification submission text;
+   `humanMustDo` is for owning the account, accepting terms/paying,
+   submitting for review and waiting, and handing the client secret to
+   Composio. `BASELINE_AGENT_CAN_DO` (the code-level fallback for an
+   empty `agentCanDo`) was rewritten to match.
+2. The four hand-checked library guides (`data/guides/*.json`) had the
+   exact same issue, being hand-authored before the scope was corrected
+   — each one's `agentCanDo` and final "Implement the authorization
+   flow"-style step were rewritten to match (e.g. GitHub's step now reads
+   "Hand off the client ID and secret to Composio").
+
+Verified by regenerating Linear (`npm run generate -- Linear`) after the
+fix: `agentCanDo` now reads "Find the developer console navigation path
+and current registration fields," "Pre-fill the registration form
+values," "Check submission prerequisites," "Draft the integration
+description and use-case details for directory review" — no OAuth-code
+tasks anywhere, and the step list ends at "Submit to the Linear
+integration directory," not an implementation step.
+
 ## Limitations
 
 - **X (Twitter) and Reddit are intentionally left out of scope — both
