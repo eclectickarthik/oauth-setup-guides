@@ -34,6 +34,13 @@
     "approvalWait": "None for Open Permissions (Sign In with LinkedIn, Share on LinkedIn). For Marketing/Advertising, Sales Navigator, or Talent: requires applying to a separate partner program per product line — no review timeline is published.",
     "notes": "Official docs don't state a hands-on setup time for the open-permissions path; the estimate above is based on step count, not a documented figure."
   },
+  "accessCost": {
+    "tier": "freemium",
+    "pricingModel": "Open Permissions (Sign In with LinkedIn, Share on LinkedIn) are free with no per-call pricing. Marketing, Sales Navigator, and Talent products are gated behind separate partner-program approval rather than simple pay-per-call pricing — access is the gate, not a price list.",
+    "rates": "No published per-call rates for Open Permissions. Commercial terms for partner-program products aren't detailed on the pages reviewed.",
+    "freeTierLimits": "No stated usage cap for Open Permissions scopes in the docs reviewed. Partner-program access requires separate approval regardless of willingness to pay.",
+    "sources": ["https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access"]
+  },
   "whenReviewIsNeeded": [
     {
       "text": "Most permissions and partner programs require explicit approval from LinkedIn. Open Permissions (profile, email, w_member_social) are the only ones available to all developers without approval.",

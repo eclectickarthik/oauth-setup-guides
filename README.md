@@ -154,6 +154,62 @@ unusually sharp edge case; the fix above resolves the specific failure mode
 reported (wrong grant type entirely), not every possible multi-product
 ambiguity a provider name can hide.
 
+**The agent treated "pay-per-use, no free tier" as an open question
+instead of the headline it should have been.** Testing the generated X
+(Twitter) guide surfaced this directly: it said API keys were available
+"immediately," never mentioned cost anywhere in the steps or requirements,
+and buried the one pricing-related thing it did flag as a single vague
+open question — "rate limits or tiered pricing for high-volume... requests"
+— rather than a fact. The real situation, verified against X's own docs
+(`docs.x.com/x-api/getting-started/pricing`, `docs.x.com/changelog`): since
+February 6, 2026, new developers get no free API tier at all. Every call
+is pay-per-use ($0.005/post read, $0.015/post created, a 3M-reads/month cap
+before Enterprise terms kick in), free access exists only for case-by-case
+approved "Public Utility" apps, and the old Basic ($200/mo) / Pro
+($5,000/mo) subscriptions are closed to new signups. A developer following
+the original guide would build the entire integration and then watch every
+API call fail for a reason the guide never mentioned.
+
+The fix is systemic, not a one-off edit to the X guide:
+
+1. Added a required `accessCost` field to the schema — tier
+   (free/freemium/paid), pricing model, rough rates, free-tier limits, and
+   a source — separate from `time.setup`/`time.approvalWait` on purpose,
+   the same way those two are already kept apart. It's required, not
+   optional, specifically so a guide can't be drafted without the model
+   having to state a position on cost.
+2. Added a third, dated research query — `"<app> API pricing <current
+   year> changes"`, with the year computed at request time — since a bare
+   `"<app> API pricing"` search tends to surface tutorials and aggregator
+   posts written before a pricing change, not the current terms.
+3. Tightened the prompt: `openQuestions` is explicitly for things
+   genuinely unverifiable, not a place to park a resolvable pricing
+   question because it's easier than stating a number; billing/payment
+   setup is always tagged a human step whenever `accessCost.tier` isn't
+   free, since an agent can't enter payment details.
+4. Evidence badges now link to the actual source URL for "docs" claims
+   (or say "unverified" if a claim somehow has none) — a UI-level forcing
+   function so a claim can't look as credible as a real citation without
+   one.
+
+Regenerating confirmed the `accessCost` field reliably fills in for a
+second provider (Reddit: correctly identified as freemium, ~100
+queries/min free, ~$0.24/1,000 calls or negotiated contracts for
+commercial use, with contract negotiation correctly landed as a human
+step) — but also surfaced an honest limitation: both the X and Reddit
+regeneration runs pulled pricing info entirely from third-party
+pricing-aggregator blogs, never the providers' own pricing pages, despite
+the prompt's instruction to prefer official sources. The domain-ranking
+heuristic (`lib/agent.ts`'s `JUNK_DOMAINS`/`DOC_HINTS`) catches review
+sites and social platforms but doesn't recognize SEO content farms that
+don't match either list. The final X library guide
+(`data/guides/twitter.json`) is hand-sourced directly against
+`docs.x.com` rather than shipped from the raw agent output for this
+reason — the systemic fix (the cost field existing, the dated query
+firing, billing landing as a human step) worked exactly as intended; the
+source-quality gap for pricing-specific queries didn't, and is left here
+as a known issue rather than claimed as solved.
+
 ## Limitations
 
 - **The agent pipeline is noticeably weaker than hand-tested guides**,
@@ -168,12 +224,22 @@ ambiguity a provider name can hide.
   for single-product providers and is unreliable for broad, multi-product
   providers unless the input names the specific product (e.g. "Gmail API",
   not "Google").
-- **The Slack and LinkedIn guides are docs-researched, not hands-on
+- **The Slack, LinkedIn, and X guides are docs-researched, not hands-on
   tested** — every claim is marked `evidence: "docs"`, never `"tested"`,
   and `docs/validation.md` says so explicitly. They're weaker than the
   GitHub and Google guides for the same reason the agent's guides are: no
   firsthand account of what the actual UI looks like or what breaks in
   practice.
+- **Pricing-specific research queries pull third-party content farms, not
+  official pricing pages.** Regenerating X and Reddit both returned pricing
+  info entirely from SEO aggregator blogs rather than `docs.x.com` or
+  `redditinc.com` — the `JUNK_DOMAINS` list catches review sites and social
+  platforms but has no way to recognize a content farm it's never seen. The
+  `accessCost` field itself fills in correctly either way (the LLM still
+  extracts the right numbers from blog summaries of official pricing), but
+  the sourcing is weaker than it should be — this is why the X library
+  guide was hand-sourced against `docs.x.com` rather than shipped from the
+  raw agent output.
 - **No retry/backoff on transient provider errors** (Tavily or Gemini
   5xx/network blips) beyond the one schema-validation retry already built
   in — a mid-run failure surfaces as an error in the UI rather than

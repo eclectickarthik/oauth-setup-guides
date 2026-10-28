@@ -62,6 +62,24 @@ export const DecisionSchema = z.object({
 });
 export type Decision = z.infer<typeof DecisionSchema>;
 
+// Separate from setup time and approval wait on purpose: a developer can
+// clear both of those in 30 minutes and still be unable to ship anything,
+// because API usage itself costs money or has no free tier. Required (not
+// optional) because skipping this is exactly how a guide ends up saying
+// keys are available "immediately" while leaving pricing as an open
+// question — see docs/validation.md's X/Twitter entry.
+export const AccessCostTierSchema = z.enum(["free", "freemium", "paid"]);
+export type AccessCostTier = z.infer<typeof AccessCostTierSchema>;
+
+export const AccessCostSchema = z.object({
+  tier: AccessCostTierSchema,
+  pricingModel: z.string().min(1), // e.g. "pay-per-use", "flat monthly fee", "free"
+  rates: z.string().min(1), // rough rates, e.g. "$0.01 per post created, $0.005 per post read"
+  freeTierLimits: z.string().min(1), // free-tier limits/exceptions, or "none" if genuinely none
+  sources: z.array(z.string().url()).min(1),
+});
+export type AccessCost = z.infer<typeof AccessCostSchema>;
+
 export const GuideSchema = z.object({
   slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "slug must be lowercase kebab-case"),
   appName: z.string().min(1),
@@ -82,6 +100,7 @@ export const GuideSchema = z.object({
     approvalWait: z.string().min(1),
     notes: z.string().optional(),
   }),
+  accessCost: AccessCostSchema,
   whenReviewIsNeeded: z.array(ClaimSchema),
   requirements: z.array(ClaimSchema),
   steps: z.array(StepSchema).min(1),

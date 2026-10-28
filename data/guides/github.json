@@ -33,6 +33,13 @@
     "setup": "5-10 min",
     "approvalWait": "None"
   },
+  "accessCost": {
+    "tier": "free",
+    "pricingModel": "Free — no cost to create or use an OAuth App or call the REST API.",
+    "rates": "No per-call charges. Authenticated requests are rate-limited to 5,000 requests/hour (not billed); unauthenticated requests to 60/hour.",
+    "freeTierLimits": "No usage-based free-tier cap to run out of — the only ceiling is the rate limit itself.",
+    "sources": ["https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api"]
+  },
   "whenReviewIsNeeded": [
     {
       "text": "No review is required to create or use an OAuth App, including for third-party users signing in.",

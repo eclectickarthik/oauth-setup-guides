@@ -30,6 +30,13 @@
     "approvalWait": "None to install to your own workspace. For Slack Marketplace listing: up to 10 business days for a preliminary review, then up to 10 weeks for the functional review on new submissions (6 weeks for resubmissions) — this cannot be expedited.",
     "notes": "Official docs don't state a hands-on setup time; the estimate above is based on the number of required steps (create app, configure scopes, set redirect URI, install), not a documented figure."
   },
+  "accessCost": {
+    "tier": "free",
+    "pricingModel": "Free — the Slack Web API has no usage-based or per-call pricing. A Slack workspace (free or paid tier) is required to develop against, but workspace subscription pricing is separate from API usage.",
+    "rates": "No per-call charges. Subject to per-method rate limits (tiered, roughly 1 to 100+ requests/minute depending on the method).",
+    "freeTierLimits": "No metered usage cap to run out of — only the per-method rate limits apply, regardless of workspace plan.",
+    "sources": ["https://api.slack.com/apis/rate-limits"]
+  },
   "whenReviewIsNeeded": [
     {
       "text": "Listing an app in the Slack Marketplace for public distribution requires passing a two-phase review (preliminary, then functional).",

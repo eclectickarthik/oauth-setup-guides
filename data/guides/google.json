@@ -35,6 +35,13 @@
     "approvalWait": "None in Testing mode. For production with sensitive scopes: about 10 business days. For restricted scopes (e.g. Gmail): verification plus a paid security assessment, several weeks, repeated annually.",
     "notes": "Measured 42 min total in this test for project setup, Branding, Audience, client creation, fixing 3 errors, and testing two scopes. Tester had prior basic Google OAuth experience, so a first-timer may take longer. Verification and security-assessment time for production were not tested directly — see sources on the relevant claims."
   },
+  "accessCost": {
+    "tier": "freemium",
+    "pricingModel": "OAuth sign-in itself is free. Standard use of the Gmail API behind it is free within generous per-minute/per-day quotas measured in quota units, not dollars; other Google APIs behind OAuth (e.g. Maps Platform) can have their own separate paid pricing not covered by this guide.",
+    "rates": "Gmail API: no per-call dollar charge for standard use. Different methods cost different quota units (e.g. drafts.send = 100 units), capped at 1,200,000 units/minute per project and 6,000 units/minute per user.",
+    "freeTierLimits": "1,200,000 quota units/minute per project, 6,000 units/minute per user, 80,000,000 units/day. Google has signaled usage beyond quota limits may incur Cloud billing charges later in 2026 — not confirmed whether this is already in effect.",
+    "sources": ["https://developers.google.com/workspace/gmail/api/reference/quota"]
+  },
   "whenReviewIsNeeded": [
     {
       "text": "No review is needed in Testing mode, whether Internal or External with up to 100 test users.",

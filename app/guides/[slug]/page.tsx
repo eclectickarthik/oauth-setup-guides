@@ -11,6 +11,12 @@ const DIFFICULTY_STYLES: Record<string, string> = {
   gated: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
 };
 
+const ACCESS_COST_STYLES: Record<string, string> = {
+  free: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  freemium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  paid: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+};
+
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
@@ -73,7 +79,7 @@ export default async function GuidePage({
 
         <p className="mt-4 text-sm text-zinc-700 dark:text-zinc-300">{guide.difficultyReason}</p>
 
-        <section className="mt-8 grid gap-4 sm:grid-cols-2">
+        <section className="mt-8 grid gap-4 sm:grid-cols-3">
           <Card>
             <p className="text-xs uppercase text-zinc-500">Hands-on setup time</p>
             <p className="mt-1 font-medium text-black dark:text-zinc-50">{guide.time.setup}</p>
@@ -84,9 +90,50 @@ export default async function GuidePage({
               {guide.time.approvalWait}
             </p>
           </Card>
+          <Card>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase text-zinc-500">API access cost</p>
+              {guide.accessCost && (
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${ACCESS_COST_STYLES[guide.accessCost.tier]}`}
+                >
+                  {guide.accessCost.tier}
+                </span>
+              )}
+            </div>
+            {guide.accessCost ? (
+              <>
+                <p className="mt-1 font-medium text-black dark:text-zinc-50">
+                  {guide.accessCost.pricingModel}
+                </p>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                  {guide.accessCost.rates}
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-500">Not recorded.</p>
+            )}
+          </Card>
         </section>
         {guide.time.notes && (
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">{guide.time.notes}</p>
+        )}
+        {guide.accessCost && (
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">
+            <span className="font-medium text-zinc-600 dark:text-zinc-400">Free-tier limits: </span>
+            {guide.accessCost.freeTierLimits}
+            {guide.accessCost.sources[0] && (
+              <>
+                {" — "}
+                <a
+                  href={guide.accessCost.sources[0]}
+                  className="underline hover:text-black dark:hover:text-zinc-50"
+                >
+                  source
+                </a>
+              </>
+            )}
+          </p>
         )}
 
         {guide.decision && (
@@ -126,7 +173,7 @@ export default async function GuidePage({
             <ul className="mt-3 space-y-2">
               {guide.requirements.map((claim, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
-                  <EvidenceBadge evidence={claim.evidence} />
+                  <EvidenceBadge evidence={claim.evidence} sources={claim.sources} />
                   <span className="text-zinc-700 dark:text-zinc-300">{claim.text}</span>
                 </li>
               ))}
@@ -142,7 +189,7 @@ export default async function GuidePage({
             <ul className="mt-3 space-y-2">
               {guide.whenReviewIsNeeded.map((claim, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
-                  <EvidenceBadge evidence={claim.evidence} />
+                  <EvidenceBadge evidence={claim.evidence} sources={claim.sources} />
                   <span className="text-zinc-700 dark:text-zinc-300">{claim.text}</span>
                 </li>
               ))}
@@ -165,7 +212,7 @@ export default async function GuidePage({
                     {step.title}
                   </span>
                   <div className="flex items-center gap-2">
-                    <EvidenceBadge evidence={step.evidence} />
+                    <EvidenceBadge evidence={step.evidence} sources={step.sources} />
                     <span className="text-xs uppercase text-zinc-500">{step.actor}</span>
                   </div>
                 </div>
@@ -192,7 +239,7 @@ export default async function GuidePage({
                     <span className="font-medium text-black dark:text-zinc-50">
                       {blocker.problem}
                     </span>
-                    <EvidenceBadge evidence={blocker.evidence} />
+                    <EvidenceBadge evidence={blocker.evidence} sources={blocker.sources} />
                   </div>
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                     {blocker.fix}

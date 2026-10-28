@@ -1,0 +1,136 @@
+{
+  "slug": "twitter",
+  "appName": "X (Twitter)",
+  "website": "https://x.com",
+  "developerPortalUrl": "https://developer.x.com",
+  "summary": "Creating an X developer account, app, and OAuth credentials is quick — but as of February 6, 2026, new developers get no free API tier. Every API call is pay-per-use, so the OAuth app works immediately while the API itself is unusable until billing is set up and credits are purchased.",
+  "decision": {
+    "question": "OAuth 1.0a or OAuth 2.0 with PKCE?",
+    "options": [
+      {
+        "name": "OAuth 2.0 Authorization Code + PKCE",
+        "pickWhen": [
+          "You're starting a new integration",
+          "You need fine-grained scopes or X API v2 user-context endpoints"
+        ],
+        "tradeoff": "X's recommended, actively supported method — requires implementing PKCE correctly."
+      },
+      {
+        "name": "OAuth 1.0a (3-legged)",
+        "pickWhen": [
+          "You're integrating with an older library or tutorial built around it",
+          "You need direct account delegation without PKCE"
+        ],
+        "tradeoff": "Still supported, but considered the older method — new integrations should prefer OAuth 2.0."
+      }
+    ],
+    "recommendation": "Use OAuth 2.0 Authorization Code Flow with PKCE unless you have a specific reason to use OAuth 1.0a — it's X's recommended method and required for v2 user-context endpoints."
+  },
+  "difficulty": "gated",
+  "difficultyReason": "Creating the developer account and OAuth app is instant. But since February 6, 2026, new developers get no free API tier — every API call is pay-per-use, and no request succeeds until a payment method is added and credits are purchased. Free access exists only for 'Public Utility' apps approved case by case, not available on request.",
+  "time": {
+    "setup": "10-20 min to create the account, app, and OAuth credentials",
+    "approvalWait": "None to create the app and get API keys — there's no approval queue for pay-per-use access itself. But the app can't successfully call the API until billing is set up and credits are purchased.",
+    "notes": "This setup time covers account/app creation only. Budget separate time to add billing before any API call will succeed — see accessCost below."
+  },
+  "accessCost": {
+    "tier": "paid",
+    "pricingModel": "Pay-per-use, credit-based. No subscription, no free tier for new developers as of Feb 6, 2026 — add a payment method, buy credits, and each API call deducts from the balance.",
+    "rates": "$0.005 per post read, $0.010 per user profile or DM read, $0.001 per owned-resource read, $0.015 per post created, $0.20 per post created containing a URL. New developers get a one-time $20 credit on adding a card, plus a match of up to $50 on first auto-recharge.",
+    "freeTierLimits": "No free tier for new developers. The only free-access path is the 'Public Utility' program — free scaled access for apps judged to serve the public good, approved case by case, not available by simply signing up. Even on paid pay-per-use, reads are capped at 3,000,000 posts/month before an Enterprise contract is required.",
+    "sources": ["https://docs.x.com/x-api/getting-started/pricing", "https://docs.x.com/changelog"]
+  },
+  "whenReviewIsNeeded": [
+    {
+      "text": "Free scaled API access (the 'Public Utility' program) is granted only case by case to apps judged to serve the public good — it is not a signup option.",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/changelog"]
+    }
+  ],
+  "requirements": [
+    {
+      "text": "An X account to sign in to the Developer Portal with.",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/resources/fundamentals/developer-portal"]
+    },
+    {
+      "text": "A payment method and prepaid credits. The app can be created without one, but no API call will succeed until billing is set up.",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/x-api/getting-started/pricing"]
+    },
+    {
+      "text": "A redirect/callback URL to register (up to 10 allowed per app); must be HTTPS and match exactly, including trailing slash, for production use.",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/resources/fundamentals/developer-apps"]
+    }
+  ],
+  "steps": [
+    {
+      "title": "Start building: Create a developer account and app",
+      "detail": "Sign in to console.x.com with your X account, accept the Developer Agreement, click 'New App', and name it. Copy and store the generated API Key, API Secret, and Access Tokens immediately — they're shown once.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/resources/fundamentals/developer-portal"]
+    },
+    {
+      "title": "Start building: Choose OAuth 1.0a or OAuth 2.0 with PKCE",
+      "detail": "See the decision above. For new integrations, configure OAuth 2.0 with PKCE under the app's authentication settings — it's required for X API v2 user-context endpoints.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/resources/fundamentals/authentication"]
+    },
+    {
+      "title": "Start building: Register your redirect URI",
+      "detail": "Add the callback URL (up to 10 allowed) to the app's allowlist in the Developer Console. Must be HTTPS for production (http://127.0.0.1 is fine for local dev) and match exactly, including trailing slash.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/resources/fundamentals/developer-apps"]
+    },
+    {
+      "title": "Start building: Implement the OAuth flow",
+      "detail": "Build the authorization URL, redirect the user, handle the callback, and exchange the code for access tokens — using PKCE for OAuth 2.0 or the 3-legged flow for OAuth 1.0a.",
+      "actor": "agent",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/resources/fundamentals/authentication"]
+    },
+    {
+      "title": "Go live: Add billing and buy credits",
+      "detail": "In the Developer Console, add a payment method and purchase credits. A successful OAuth flow does not mean the API is usable — every request fails until the account has a positive credit balance.",
+      "actor": "human",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/x-api/getting-started/pricing"]
+    }
+  ],
+  "blockers": [
+    {
+      "problem": "API calls fail with no credits, even with valid OAuth tokens.",
+      "fix": "Add a payment method and purchase credits in the Developer Console before making any API call — completing the OAuth flow successfully does not mean the API is usable.",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/x-api/getting-started/pricing"]
+    },
+    {
+      "problem": "Old tutorials reference free/Basic tiers that no longer exist for new developers.",
+      "fix": "As of Feb 6, 2026, new developer signups default to pay-per-use with no free tier; the Basic ($200/mo) and Pro ($5,000/mo) subscription tiers are closed to new signups (existing subscribers keep them or can opt into pay-per-use). Verify current pricing on docs.x.com directly rather than trusting an older guide.",
+      "evidence": "docs",
+      "sources": ["https://docs.x.com/changelog"]
+    }
+  ],
+  "agentCanDo": [
+    "Build the authorization URL",
+    "Implement the callback handler",
+    "Exchange the authorization code for an access token (OAuth 2.0 PKCE or OAuth 1.0a 3-legged)",
+    "Refresh the access token when it expires"
+  ],
+  "humanMustDo": [
+    "Create the developer account and app in the X Developer Console",
+    "Register the redirect URI",
+    "Set up billing and buy credits — no API call works without this",
+    "Apply separately for Public Utility free access if applicable — not guaranteed"
+  ],
+  "openQuestions": [
+    "Exact per-call rates may change; verify on the X developer portal before budgeting.",
+    "Whether the 3,000,000 post-reads/month cap before requiring an Enterprise contract has changed since this guide was last verified."
+  ],
+  "generatedBy": "manual",
+  "lastVerified": "2026-10-28"
+}

@@ -8,8 +8,8 @@ export const MODEL = process.env.LLM_MODEL || "gemini-3.5-flash-lite";
 // have zero free quota on this project even though plain generation worked
 // fine, so research runs through Tavily (search + extract) instead, and
 // Gemini only sees the resulting plain text — no tools, no grounding.
-const SEARCH_QUERIES = 2;
-const INITIAL_EXTRACT_CAP = 4;
+const SEARCH_QUERIES = 3;
+const INITIAL_EXTRACT_CAP = 5;
 const FALLBACK_EXTRACT_CAP = 2;
 
 // Per-page character budget sent to the model. Docs pages that bundle many
@@ -170,6 +170,17 @@ const GUIDE_JSON_SCHEMA = {
       },
       required: ["setup", "approvalWait"],
     },
+    accessCost: {
+      type: "object",
+      properties: {
+        tier: { type: "string", enum: ["free", "freemium", "paid"] },
+        pricingModel: { type: "string" },
+        rates: { type: "string" },
+        freeTierLimits: { type: "string" },
+        sources: { type: "array", items: { type: "string" } },
+      },
+      required: ["tier", "pricingModel", "rates", "freeTierLimits", "sources"],
+    },
     whenReviewIsNeeded: { type: "array", items: CLAIM_SCHEMA },
     requirements: { type: "array", items: CLAIM_SCHEMA },
     steps: { type: "array", items: STEP_SCHEMA },
@@ -189,6 +200,7 @@ const GUIDE_JSON_SCHEMA = {
     "difficulty",
     "difficultyReason",
     "time",
+    "accessCost",
     "whenReviewIsNeeded",
     "requirements",
     "steps",
@@ -220,6 +232,7 @@ MOST IMPORTANT CHECKS, do these first, before writing anything else:
 1. Target the API a developer would use to let their END USERS connect their own accounts — the authorization_code flow with a consent step. A provider can have multiple products that technically say "OAuth": e.g. an Ads API that uses client_credentials for server-to-server access to the developer's OWN account (no end user involved at all) vs. a "Sign in with X" product that's the real end-user flow. If any source describes the client_credentials grant, server-to-server access, or "your own account/ad account" access with no end-user consent step, that is NOT what this guide is for. If the provider has several OAuth-enabled products, say in the summary which one this guide covers and why, and name the others so the reader knows they exist.
 2. Check the grant type every source actually describes. If EVERY source only documents client_credentials (server-to-server, no end-user consent, no redirect, no consent screen) and NONE describe authorization_code / a user sign-in step, set the "warning" field to one clear sentence stating this is NOT an end-user OAuth flow — still fill out the rest of the guide as best you can from what's available, but add to openQuestions that the real end-user-facing product (if one exists) should be researched separately by name. Leave "warning" unset entirely if the sources do describe a normal end-user authorization_code flow.
 3. Scan the titles and content of every source for comparison language — "differences between X and Y", "X vs Y", "X or Y", multiple named app/client types. If ANY source describes more than one distinct app type or setup path (e.g. GitHub OAuth App vs. GitHub App, Google Internal vs. External), you MUST populate the "decision" field describing that choice. This is the single highest-value thing a guide can get right and the most commonly missed — do not skip it just because the rest of your answer is based on a different source.
+4. Fill "accessCost" from the pricing/changes sources you were given, not from what you already believe about this provider — pricing changes, and a provider that was free last year may not be free now (or vice versa). Set "tier" to free/freemium/paid based on whether calling the API itself (not the OAuth login step) costs money. State the actual pricing model and rough rates in plain terms, and state free-tier limits or exceptions (e.g. "free only for approved public-interest apps," "free up to N requests/month", or "none" if there genuinely are none). If the pricing sources found nothing concrete, pick the tier your sources most support, say plainly in "rates" that exact current pricing could not be fully confirmed, and add a note to openQuestions to verify directly on the provider's site — never state a specific rate you don't have a source for.
 
 Research thoroughly for:
 - How to create the OAuth app / register a client, and whether the provider offers more than one app type. If so, use the "decision" field for it (see the check above).
@@ -237,13 +250,14 @@ If the provider has no such distinction (review is required even to start testin
 
 Source and evidence rules:
 - Every claim needs a source URL from the "Available sources" list you're given — never invent, guess, or cite a URL that isn't in that list. If nothing in the provided sources supports a claim you'd otherwise want to make, do not state it — put it in openQuestions instead. You never have evidence "tested" — only "docs" or "uncertain".
-- Prefer the provider's own domain over third-party sites. If you cite a third-party source because no official docs page covers that point, say so explicitly in the claim text, e.g. "(from a third-party source, not official docs)".
+- Prefer official sources (the provider's own developer docs, pricing pages, changelogs) over tutorials, SDK wrapper docs, and blogs. If a claim is only supported by a third-party source because no official page covers that point, say so explicitly in the claim text, e.g. "(from a third-party source, not official docs)" — this applies especially to pricing and rate figures, where tutorials and blog posts are often stale.
 - Official docs describe UI navigation (menu paths, button names, page layout) that can go stale between when the doc was written and now. When a step depends on a specific UI path, phrase it so it's clear this is documentation-sourced and the exact path may have moved — don't state it as independently verified current.
 - If you're given a second round of extracted pages specifically targeting review/verification/marketplace/partner-program info (because the first pass didn't find any), use it. If even that turns up nothing, say so explicitly in openQuestions rather than assuming no review is needed.
+- "openQuestions" is only for things genuinely unverifiable from what's available — not a dumping ground for anything inconvenient. Before adding something to openQuestions, check whether your sources already answer it (this applies especially to pricing: if a pricing/changes source describes current rates, state them as a claim — don't punt a resolvable question to openQuestions just because it's easier).
 
 Other rules:
 - Keep hands-on setup time (time.setup) and approval/review wait time (time.approvalWait) separate — never merge them.
-- Tag every step "agent" (an AI coding agent could do this) or "human" (requires login, payment, legal action, or submitting for review).
+- Tag every step "agent" (an AI coding agent could do this) or "human" (requires login, payment, legal action, or submitting for review). Whenever API usage is paid (accessCost.tier is "paid", or "freemium" where the OAuth-app-holder needs to add a payment method to use the API at all), setting up billing / adding a payment method / buying credits is always a "human" step — an agent cannot enter payment details.
 - "agentCanDo" must never be empty — always include at minimum: building the authorization URL, implementing the callback handler, exchanging the code for a token, and refreshing the token. Add more if the docs support it.
 - Only include "decision" if the sources describe more than one distinct setup path (multiple app types, or an audience/environment choice like internal vs. external) — omit it entirely otherwise.
 - "difficulty" is one of easy/medium/hard/gated. Weigh the "go live" phase's requirements, not just "start building" — a provider can look easy until production access turns out to need verification, a paid security assessment, or a partner program.
@@ -284,13 +298,21 @@ async function research(
   // "sign in" + "user login" + "authorization code" bias the search toward
   // the end-user-facing product rather than whichever API page happens to
   // say "OAuth" most prominently (e.g. an ads/server-to-server API).
+  // A dated pricing/changes query catches cases like X's Feb 2026 move to
+  // pay-per-use: a bare "<app> API pricing" search tends to surface
+  // outdated tutorials and aggregator blogs from before a pricing change,
+  // not the current terms. The year is computed at request time, not
+  // hardcoded, so this doesn't go stale.
+  const currentYear = new Date().getFullYear();
   const queries = [
     `${appInput} sign in OAuth user login authorization code developer documentation`,
     `${appInput} app review verification`,
+    `${appInput} API pricing ${currentYear} changes`,
   ].slice(0, SEARCH_QUERIES);
 
   onProgress(`Searching for "${appInput}" OAuth setup docs…`, "tavily");
   onProgress(`Searching for "${appInput}" review and verification policy…`, "tavily");
+  onProgress(`Searching for "${appInput}" API pricing and recent changes…`, "tavily");
 
   tavilyCounter.count += queries.length;
   const searchResults = await Promise.all(queries.map((q) => tavilySearch(q, 5)));
